@@ -87,8 +87,8 @@ jobs:
       - name: Check generated bindings are current
         run: cargo run --locked -p sable-core --example generate-types --features typegen -- --check
 
-  # --all-features would turn on both desktop runtimes and download CEF, so the
-  # app crate stays on its default runtime. The Linux release job covers CEF.
+  # The app crate is the Android and iOS shell. This job lints and tests it on
+  # the Linux host. The mobile release jobs compile the real targets.
   app:
     name: App crate
     runs-on: ubuntu-latest

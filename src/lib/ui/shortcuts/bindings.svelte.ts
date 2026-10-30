@@ -1,7 +1,6 @@
 import { SvelteMap } from 'svelte/reactivity';
 
 import { readJson, writeJson } from '#lib/platform/local-json.js';
-import { supportsDesktopWindow } from '#lib/platform/window-decorations.js';
 
 import { findShortcutConflicts } from './binding.js';
 import { SHORTCUTS, shortcutScope, type ShortcutDefinition, type ShortcutId } from './shortcuts.js';
@@ -33,9 +32,7 @@ export function isRebound(id: ShortcutId): boolean {
 }
 
 export function effectiveShortcuts(): ShortcutDefinition[] {
-  return SHORTCUTS.filter((shortcut) => !shortcut.desktopOnly || supportsDesktopWindow()).map(
-    (shortcut) => ({ ...shortcut, binding: effectiveBinding(shortcut) })
-  );
+  return SHORTCUTS.map((shortcut) => ({ ...shortcut, binding: effectiveBinding(shortcut) }));
 }
 
 export function rebind(id: ShortcutId, binding: string): void {

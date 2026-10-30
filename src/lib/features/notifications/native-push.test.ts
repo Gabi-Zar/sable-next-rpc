@@ -73,7 +73,7 @@ beforeEach(() => {
       stored.set(key, value);
     },
   });
-  mocks.native.mockResolvedValue(true);
+  mocks.native.mockReturnValue(true);
   mocks.list.mockResolvedValue(['embedded-websocket', 'io.heckel.ntfy', 'org.example.sunup']);
   mocks.config.mockResolvedValue(config);
   mocks.register.mockResolvedValue(undefined);
@@ -272,7 +272,7 @@ test('a failed switch does not block a later retry', async () => {
 });
 
 test('does not register native push in the browser', async () => {
-  mocks.native.mockResolvedValue(false);
+  mocks.native.mockReturnValue(false);
   await registerNativePush(override, session, accounts);
   expect(mocks.register).not.toHaveBeenCalled();
 });

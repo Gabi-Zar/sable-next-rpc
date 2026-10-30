@@ -194,14 +194,12 @@ jobs:
             arch: x86_64
             runner: ubuntu-24.04
             tarball: sable-@VERSION@-x64.tar.gz
-            render-flag: --electron
             manifest: electron/nightly/moe.sable.next.electron.Nightly.yml
     permissions:
       contents: read
     env:
       ARCH: ${{ matrix.arch }}
       TARBALL: ${{ matrix.tarball }}
-      RENDER_FLAG: ${{ matrix.render-flag }}
       MANIFEST: packaging/flatpak/${{ matrix.manifest }}
       TAG: ${{ needs.setup-release.outputs.tag }}
       VERSION: ${{ needs.setup-release.outputs.version }}
@@ -244,9 +242,9 @@ jobs:
         shell: bash
         run: |
           if [ "$ARCH" = 'x86_64' ]; then
-            node scripts/ci/render-flatpak-nightly.mjs $RENDER_FLAG "$VERSION" "$TAG" "$SHA256:$SIZE" -
+            node scripts/ci/render-flatpak-nightly.mjs "$VERSION" "$TAG" "$SHA256:$SIZE" -
           else
-            node scripts/ci/render-flatpak-nightly.mjs $RENDER_FLAG "$VERSION" "$TAG" - "$SHA256:$SIZE"
+            node scripts/ci/render-flatpak-nightly.mjs "$VERSION" "$TAG" - "$SHA256:$SIZE"
           fi
       - name: Build the Flatpak
         if: ${{ steps.tarball.outputs.built == 'true' }}

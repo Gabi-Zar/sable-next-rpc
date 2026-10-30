@@ -3,7 +3,6 @@
   import FileIcon from 'phosphor-svelte/lib/FileIcon';
 
   import { i18n } from '#lib/i18n.js';
-  import { listenNativeFileDrop } from '#lib/platform/file-drop.js';
   import { REORDER_DRAG_TYPE } from '#lib/ui/drag-list.js';
 
   import { filesFrom } from '#lib/composer/composer-files.js';
@@ -47,16 +46,6 @@
     if (event.relatedTarget !== null) return;
     dragging = false;
   }
-
-  $effect(() =>
-    listenNativeFileDrop({
-      onEnter: () => (dragging = !readOnly),
-      onLeave: () => (dragging = false),
-      onDrop: (files) => {
-        if (!readOnly) void onFiles(files);
-      },
-    })
-  );
 </script>
 
 <svelte:window

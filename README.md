@@ -232,20 +232,6 @@ The web build ships with every release as `sable-<version>-web.tar.gz`.
 Extract it into your web root to serve the app yourself; see
 [`Caddyfile`](Caddyfile) for an example configuration.
 
-### Console output
-
-Run with `--verbose` to print webview console messages to stderr (CEF and Wry).
-In development: `pnpm tauri dev -- -- --verbose`.
-Quit any running instance before restarting with the flag.
-
-### Proxy
-
-Start a desktop app with `--proxy` to send all of its traffic through an HTTP
-or SOCKS5 proxy, for example `--proxy=socks5://127.0.0.1:9050`. On Windows, add
-it to the end of the shortcut's Target, after the quoted path.
-A SOCKS5 proxy also resolves host names, so lookups do not leave the proxy. An
-invalid value shows an error and quits rather than starting without the proxy.
-
 ## Contributing
 
 See [`CONTRIBUTING.md`](CONTRIBUTING.md).

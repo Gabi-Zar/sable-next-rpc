@@ -105,9 +105,9 @@ test.each([
   ['darwin', true],
   ['win32', false],
   ['linux', false],
-] as const)('Electron native sharing on %s is %s', async (platform, supported) => {
+] as const)('Electron native sharing on %s is %s', (platform, supported) => {
   stubElectron({ platform });
-  expect(await sharesNatively()).toBe(supported);
+  expect(sharesNatively()).toBe(supported);
 });
 
 test('Electron passes file bytes to its native share bridge', async () => {
@@ -412,18 +412,15 @@ test('iOS carries a non-ASCII filename a header value cannot hold', async () => 
   for (const value of Object.values(headers)) expect(value).toMatch(/^[ -~]*$/);
 });
 
-test('the share sheet is native everywhere it exists, and nowhere on the web', async () => {
+test('the share sheet is native everywhere it exists, and nowhere on the web', () => {
   mocks.isTauri.mockReturnValue(false);
-  expect(await sharesNatively()).toBe(false);
+  expect(sharesNatively()).toBe(false);
 
   mocks.isTauri.mockReturnValue(true);
-  for (const os of ['android', 'ios', 'macos', 'windows']) {
+  for (const os of ['android', 'ios']) {
     mocks.osType.mockReturnValue(os);
-    expect(await sharesNatively()).toBe(true);
+    expect(sharesNatively()).toBe(true);
   }
-
-  mocks.osType.mockReturnValue('linux');
-  expect(await sharesNatively()).toBe(false);
 });
 
 test('sharing writes the media to the cache and hands over a file URL', async () => {
@@ -455,12 +452,11 @@ test('a name iOS could not parse as a URL is reduced to one that it can', async 
   );
 });
 
-test('the sheet anchors from the top on iPad and from the bottom on macOS', async () => {
+test('the sheet anchors from the top of the shared item', async () => {
   vi.stubGlobal(
     'fetch',
     vi.fn(() => Promise.resolve(new Response(new Uint8Array([1]))))
   );
-  vi.stubGlobal('window', { innerHeight: 800 });
   const anchor: DOMRect = {
     x: 20,
     y: 60,
@@ -478,13 +474,6 @@ test('the sheet anchors from the top on iPad and from the bottom on macOS', asyn
   expect(mocks.shareNative).toHaveBeenLastCalledWith(
     '/cache/outgoing-share/holiday.png',
     expect.objectContaining({ position: { x: 20, y: 60 } })
-  );
-
-  mocks.osType.mockReturnValue('macos');
-  expect(await shareFile('blob:media', 'holiday.png', 'image/png', anchor)).toBe('saved');
-  expect(mocks.shareNative).toHaveBeenLastCalledWith(
-    '/cache/outgoing-share/holiday.png',
-    expect.objectContaining({ position: { x: 20, y: 700 } })
   );
 });
 
@@ -523,19 +512,6 @@ test('the staged copy is removed once Android or iOS has taken its own', async (
   expect(mocks.fsRemove).toHaveBeenCalledWith('/cache/outgoing-share/holiday.png');
 });
 
-test('the staged file stays on macOS and Windows, where the sheet reads it in place', async () => {
-  vi.stubGlobal(
-    'fetch',
-    vi.fn(() => Promise.resolve(new Response(new Uint8Array([1]))))
-  );
-
-  for (const os of ['macos', 'windows']) {
-    mocks.osType.mockReturnValue(os);
-    await shareFile('blob:media', 'holiday.png');
-  }
-  expect(mocks.fsRemove).not.toHaveBeenCalled();
-});
-
 test('a failed cleanup does not turn a share into a failure', async () => {
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(new Uint8Array([1]))));
   mocks.osType.mockReturnValue('android');
@@ -570,34 +546,6 @@ test('saved bytes reach Android Downloads with the type their name declares', as
       requestPermission: true,
     }
   );
-});
-
-test('a desktop download goes straight to the Downloads folder when it is not asked about', async () => {
-  mocks.isTauri.mockReturnValue(true);
-  mocks.osType.mockReturnValue('linux');
-  mocks.fsWriteFile.mockResolvedValue(undefined);
-  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(new Uint8Array([1, 2, 3]))));
-
-  await expect(saveFile('blob:wave', 'wave.png', false)).resolves.toBe('saved');
-
-  expect(mocks.dialogSave).not.toHaveBeenCalled();
-  expect(mocks.fsWriteFile).toHaveBeenCalledWith('/dl/wave.png', new Uint8Array([1, 2, 3]), {
-    createNew: true,
-  });
-});
-
-test('a desktop download keeps an existing file by retrying under a new name', async () => {
-  mocks.isTauri.mockReturnValue(true);
-  mocks.osType.mockReturnValue('linux');
-  vi.spyOn(Date, 'now').mockReturnValue(1000);
-  mocks.fsWriteFile.mockRejectedValueOnce(new Error('exists')).mockResolvedValueOnce(undefined);
-  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(new Uint8Array([1]))));
-
-  await expect(saveFile('blob:wave', 'wave.png', false)).resolves.toBe('saved');
-
-  expect(mocks.fsWriteFile).toHaveBeenLastCalledWith('/dl/wave-1000.png', new Uint8Array([1]), {
-    createNew: true,
-  });
 });
 
 test('saved bytes go through the iOS save dialog rather than an anchor', async () => {

@@ -1,8 +1,5 @@
 import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
-const tauri = vi.hoisted(() => ({ invoke: vi.fn(), Channel: vi.fn() }));
-vi.mock('@tauri-apps/api/core', () => tauri);
-
 import { startScreenAudioStream, stopScreenAudioStream } from './screen-audio-stream';
 
 const track = {} as MediaStreamTrack;
@@ -62,8 +59,6 @@ test('passes Electron PCM to the worklet and cleans up on stop', async () => {
   const samples = new Float32Array([0.25, -0.5]);
   receive(samples.buffer);
   expect(post).toHaveBeenCalledWith(samples, [samples.buffer]);
-  expect(tauri.invoke).not.toHaveBeenCalled();
-  expect(tauri.Channel).not.toHaveBeenCalled();
 
   await stopScreenAudioStream();
   expect(unsubscribe).toHaveBeenCalledOnce();

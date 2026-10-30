@@ -2,7 +2,6 @@ import {
   ConnectionQuality,
   ConnectionState,
   LocalAudioTrack,
-  LocalVideoTrack,
   Room as LivekitRoom,
   type ScreenShareCaptureOptions,
   type TrackPublishOptions,
@@ -23,7 +22,6 @@ import {
 } from '#lib/platform/screen-audio.js';
 import type { ScreenAudioChoice } from '#lib/platform/screen-audio-stream.js';
 import { electronBridge } from '#lib/platform/electron.js';
-import { startHdrShare, stopHdrShare } from '#lib/platform/hdr-share.js';
 import { preferences } from '#lib/settings/preferences.svelte.js';
 
 import type {
@@ -507,17 +505,6 @@ export function createLivekitTransport(options: LivekitTransportOptions): Liveki
   let screenAudio: LocalAudioTrack | null = null;
   let screenAudioGeneration = 0;
   let screenAudioTask: Promise<boolean> = Promise.resolve(true);
-  let hdrScreen: LocalVideoTrack | null = null;
-
-  const stopHdrScreen = async (): Promise<void> => {
-    const track = hdrScreen;
-    hdrScreen = null;
-    if (!track) return;
-    await room.localParticipant.unpublishTrack(track, true).catch(ignoreError);
-    await stopHdrShare().catch((error: unknown) => {
-      fail('call.screen_share.hdr_stop', error);
-    });
-  };
 
   const stopSharingAudio = (): Promise<void> => {
     screenAudioGeneration += 1;
@@ -597,7 +584,6 @@ export function createLivekitTransport(options: LivekitTransportOptions): Liveki
       healthTimer = undefined;
       try {
         await stopSharingAudio();
-        await stopHdrScreen();
         await room.disconnect();
       } finally {
         worker?.terminate();
@@ -630,38 +616,8 @@ export function createLivekitTransport(options: LivekitTransportOptions): Liveki
     getState: () => ({ ...state, participants: [...state.participants] }),
     capabilities: {
       screenShare: {
-        setEnabled: async (enabled, audio, source) => {
+        setEnabled: async (enabled, audio) => {
           if (disposed || options.publishMedia === false) return;
-          if (enabled && source?.kind === 'hdr') {
-            await step('call.screen_share.hdr', async () => {
-              const track = new LocalVideoTrack(
-                await startHdrShare(
-                  source.monitor,
-                  () => {
-                    void stopHdrScreen().then(stopSharingAudio).then(syncLocal);
-                  },
-                  screenCapture().resolution
-                ),
-                undefined,
-                true
-              );
-              hdrScreen = track;
-              await room.localParticipant.publishTrack(track, {
-                ...screenPublish(),
-                source: Track.Source.ScreenShare,
-              });
-            });
-            const audioShared = await shareAudio(audio);
-            syncLocal();
-            if (!audioShared) throw new ScreenAudioError();
-            return;
-          }
-          if (!enabled && hdrScreen) {
-            await stopHdrScreen();
-            await stopSharingAudio();
-            syncLocal();
-            return;
-          }
           await step('call.screen_share.set', () => {
             if (!enabled) return room.localParticipant.setScreenShareEnabled(false);
             const browserAudio = !screenAudioSupported();

@@ -70,7 +70,7 @@ run = [
   "pnpm knip",
   "cargo fmt --all -- --check",
   "cargo machete",
-  # --all-features would turn on both desktop runtimes and download CEF.
+  # The app crate links the system webview, so it is linted apart from the workspace.
   "cargo clippy --locked --workspace --exclude app --all-targets --all-features -- -D warnings",
   "cargo clippy --locked -p app --all-targets -- -D warnings",
   "cargo clippy --locked -p sable-wasm --target wasm32-unknown-unknown --all-targets --all-features -- -D warnings",
@@ -122,7 +122,7 @@ description = "Regenerate the Rust emoji property tables from Node's Unicode dat
 run = "node scripts/generate/emoji-properties.mjs"
 
 [tasks."generate:installer-assets"]
-description = "Regenerate the Windows and macOS installer artwork"
+description = "Regenerate the Electron installer artwork"
 run = "node scripts/generate/installer-assets.mjs"
 
 [tasks."generate:admin-commands"]
@@ -147,7 +147,7 @@ raw = true
 [tasks.tauri]
 description = "Run Tauri CLI"
 depends = ["tauri:setup"]
-run = "node scripts/build/tauri.mjs"
+run = "pnpm tauri"
 raw_args = true
 
 [tasks."tauri:icons"]
@@ -179,14 +179,6 @@ description = "Set up iOS Xcode project"
 depends = ["tauri:setup:macos"]
 confirm = { message = "Set up iOS Xcode project? (required for Tauri)", default = "no" }
 run = ["command -v pod >/dev/null 2>&1 || brew install cocoapods", "pnpm tauri ios init"]
-
-[tasks."tauri:setup:windows"]
-description = "Install Visual Studio Build Tools + WebView2 runtime"
-confirm = { message = "Install Visual Studio Build Tools and WebView2 runtime? (required for Tauri)", default = "no" }
-run = [
-  "winget install --id Microsoft.VisualStudio.BuildTools --source winget --force --override \"--add Microsoft.VisualStudio.Workload.VCTools --includeRecommended --add Microsoft.VisualStudio.Component.Windows11SDK.26100 --addProductLang En-us\"",
-  "winget install --id Microsoft.EdgeWebView2Runtime --source winget",
-]
 
 [tasks.opentofu]
 description = "Run OpenTofu for the Cloudflare deployment"

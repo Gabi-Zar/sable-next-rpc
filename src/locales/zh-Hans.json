@@ -221,13 +221,7 @@
     "screenOf": "{{name}} 的屏幕",
     "watchScreen": "观看 {{name}} 的屏幕",
     "stopWatching": "停止观看",
-    "screenSourceTitle": "共享屏幕",
-    "screenSourceExplain": "此显示器处于 HDR 模式，Sable 可以自行捕获它并将 HDR 转换为 SDR，这样明亮的内容就不会让观看者感到刺眼。",
-    "screenSourceHdrHint": "整个显示器，降低到正常亮度，此方式不共享声音。",
-    "screenSourceHdrPortal": "一个显示器，已转换 HDR",
-    "screenSourceHdrPortalHint": "整个显示器，降低到正常亮度。你的桌面接下来会询问选择哪一个。",
     "screenSourcePicker": "选择屏幕或窗口",
-    "screenSourcePickerHint": "常规选择器，带声音，HDR 内容可能看起来过亮或发白。",
     "nameOnDevice": "{{name}}（{{device}}）",
     "thisDevice": "此设备",
     "unpin": "取消固定 {{name}}",
@@ -309,7 +303,6 @@
       "native": "原生"
     },
     "connecting": "正在连接",
-    "screenSourceHdr": "{{name}}，已转换 HDR",
     "waitingForMedia": "通话加密后可用",
     "statsMbps": "{{value, number}} Mbps",
     "screenPickerScreens": "屏幕",
@@ -2284,7 +2277,6 @@
     "troubleshootPermissionDenied": "此设备上 Sable 的通知被阻止。",
     "troubleshootAlertsOn": "系统通知已开启。",
     "troubleshootAlertsOff": "系统通知已在这些设置中关闭。",
-    "troubleshootDesktop": "桌面应用在运行时提醒，且不使用推送服务。",
     "troubleshootNotApplicable": "因为先前的检查失败而跳过。",
     "troubleshootTransportUnsupported": "此浏览器无法接收推送通知。",
     "troubleshootTransportApple": "Apple 推送通知服务。",
@@ -2433,7 +2425,6 @@
     "deleteAccount": "删除账户",
     "deleteAccountHint": "永久停用你的账户。",
     "renderProfileColors": "显示个人资料名称颜色",
-    "zoomShortcutsHint": "使用 Ctrl（macOS 上为 ⌘）配合 +、- 或 0 键，或者使用 Ctrl 键加鼠标滚轮，即可调整界面缩放比例。",
     "deleteAccountDescription": "此操作将使你在所有设备上退出登录，且无法撤销。此后，你将无法再次登录或重复使用该用户 ID。",
     "hideTopicChanges": "隐藏话题变更",
     "updateChannelStable": "稳定版",
@@ -2491,7 +2482,6 @@
     "fontCustomHint": "选择“跟随系统”以使用你的设备字体。",
     "deleteAccountTypeUserId": "输入 {{userId}} 以确认",
     "updateChannel": "更新频道",
-    "zoomShortcuts": "缩放快捷键",
     "timeZoneHint": "以该时区显示消息时间，当你的浏览器隐藏你的真实时区时很有用。",
     "timeZoneAuto": "自动（此设备）"
   },
@@ -3327,9 +3317,7 @@
     "hangUp": "离开通话",
     "toggleEmojiPicker": "切换表情选择器",
     "toggleGifPicker": "切换 GIF 选择器",
-    "toggleStickerPicker": "切换贴纸选择器",
-    "closeWindow": "关闭窗口",
-    "quit": "退出 Sable"
+    "toggleStickerPicker": "切换贴纸选择器"
   },
   "search": {
     "close": "关闭搜索",

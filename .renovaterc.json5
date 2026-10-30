@@ -76,18 +76,6 @@
       allowedVersions: '<7',
     },
     {
-      description: 'CEF and winit must match the pinned tauri-runtime-cef revision',
-      matchManagers: ['cargo'],
-      matchPackageNames: ['cef', 'winit'],
-      enabled: false,
-    },
-    {
-      description: 'GTK must match the version used by WebKitGTK and Tauri',
-      matchManagers: ['cargo'],
-      matchPackageNames: ['gtk'],
-      allowedVersions: '<0.19',
-    },
-    {
       description: 'Keep PipeWire compatible with the Audiofox bindings',
       matchManagers: ['cargo'],
       matchPackageNames: ['pipewire'],

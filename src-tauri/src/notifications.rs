@@ -19,8 +19,6 @@ use tauri_plugin_notifications::NotificationsExt;
 #[cfg(not(target_os = "android"))]
 const MESSAGES_CHANNEL: &str = "messages.v2";
 #[cfg(not(target_os = "android"))]
-const NOTIFICATION_GROUP: &str = "matrix_messages";
-#[cfg(not(target_os = "android"))]
 const MESSAGE_ACTIONS: &str = "sable-message";
 #[cfg(not(target_os = "android"))]
 const MAX_CONVERSATION_LINES: usize = 8;
@@ -67,7 +65,7 @@ static PUSH_REGISTRATION_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::cons
 #[derive(Debug, serde::Serialize)]
 #[serde(tag = "stage", rename_all = "snake_case")]
 #[cfg_attr(
-    desktop,
+    not(mobile),
     expect(dead_code, reason = "only a mobile registration can fail")
 )]
 pub enum PushRegistrationError {
@@ -313,21 +311,12 @@ fn now_ms() -> i64 {
 
 #[cfg(not(target_os = "android"))]
 fn group_key(view: &NotificationView) -> String {
-    if cfg!(any(target_os = "ios", target_os = "macos")) {
-        conversation_key(view.user_id.as_str(), view.room_id.as_str())
-    } else {
-        NOTIFICATION_GROUP.to_owned()
-    }
+    conversation_key(view.user_id.as_str(), view.room_id.as_str())
 }
 
 #[cfg(not(target_os = "android"))]
 const fn shows_content(encrypted_room: bool, content: bool, encrypted_content: bool) -> bool {
     content && (!encrypted_room || encrypted_content)
-}
-
-#[cfg(not(target_os = "android"))]
-const fn alerts_silently(noisy: Option<bool>, sounds: bool) -> bool {
-    !sounds || (!cfg!(mobile) && matches!(noisy, Some(false)))
 }
 
 #[cfg(not(target_os = "android"))]
@@ -455,81 +444,6 @@ pub async fn show<R: Runtime>(
     show_generic(app, core, view).await;
 }
 
-#[cfg(desktop)]
-pub async fn handle_call<R: Runtime>(
-    app: &AppHandle<R>,
-    core: &sable_core::Core,
-    event: &sable_core::protocol::CoreEvent,
-) {
-    use sable_core::protocol::CoreEvent;
-    use sable_core::ruma::MilliSecondsSinceUnixEpoch;
-    match event {
-        CoreEvent::IncomingCall {
-            room_id,
-            notification_event_id,
-            sender,
-            sender_name,
-            ring,
-            expires_at_ms,
-            ..
-        } => {
-            let now = u64::from(MilliSecondsSinceUnixEpoch::now().get());
-            let remaining = expires_at_ms.saturating_sub(now);
-            if !core.notifications_enabled() || remaining == 0 {
-                return;
-            }
-            let id = java_hash(&format!("call:{notification_event_id}"));
-            let title = if core.notification_content() {
-                sender_name.clone().unwrap_or_else(|| sender.to_string())
-            } else {
-                "Sable".to_owned()
-            };
-            let Some(user_id) = core.user_id().await else {
-                return;
-            };
-            let builder = app
-                .notifications()
-                .builder()
-                .id(id)
-                .title(title)
-                .body(if *ring {
-                    "Incoming call"
-                } else {
-                    "Call started"
-                })
-                .silent()
-                .auto_cancel()
-                .extra("user_id", user_id.as_str())
-                .extra("room_id", room_id.as_str());
-            #[cfg(target_os = "linux")]
-            let builder = if let Some(icon) = linux_icon(app) {
-                builder.icon(icon)
-            } else {
-                builder
-            };
-            if let Err(error) = builder.show().await {
-                log::warn!("could not show incoming call: {error}");
-                return;
-            }
-            let app = app.clone();
-            tauri::async_runtime::spawn(async move {
-                tokio::time::sleep(Duration::from_millis(remaining)).await;
-                remove_posted(&app, vec![id]).await;
-            });
-        }
-        CoreEvent::IncomingCallEnded {
-            notification_event_id,
-        } => {
-            remove_posted(
-                app,
-                vec![java_hash(&format!("call:{notification_event_id}"))],
-            )
-            .await;
-        }
-        _ => {}
-    }
-}
-
 #[cfg(target_os = "android")]
 async fn post_android<R: Runtime>(app: &AppHandle<R>, view: &NotificationView) {
     use tauri_plugin_sable_push::SablePushExt;
@@ -594,12 +508,8 @@ async fn show_generic<R: Runtime>(
     if cfg!(target_os = "android") {
         builder = builder.icon("notification_icon");
     }
-    #[cfg(target_os = "linux")]
-    if let Some(icon) = linux_icon(app) {
-        builder = builder.icon(icon);
-    }
     builder = builder.only_alert_once(core.notify_once() && cooling(view, Instant::now()));
-    if alerts_silently(view.noisy, core.notification_sounds()) {
+    if !core.notification_sounds() {
         builder = builder.silent();
     }
     if lines.len() > 1 {
@@ -644,20 +554,6 @@ fn grant(
     }
 }
 
-#[cfg(target_os = "linux")]
-fn linux_icon<R: Runtime>(app: &AppHandle<R>) -> Option<String> {
-    use tauri::Manager;
-    static ICON: std::sync::OnceLock<Option<String>> = std::sync::OnceLock::new();
-    ICON.get_or_init(|| {
-        let dir = app.path().app_cache_dir().ok()?;
-        std::fs::create_dir_all(&dir).ok()?;
-        let path = dir.join("notification-icon.png");
-        std::fs::write(&path, include_bytes!("../icons/128x128.png")).ok()?;
-        path.to_str().map(str::to_owned)
-    })
-    .clone()
-}
-
 pub async fn show_test<R: Runtime>(app: &AppHandle<R>, core: &sable_core::Core, sequence: u32) {
     show(app, core, &test_view(sequence)).await;
 }
@@ -677,27 +573,6 @@ fn test_view(sequence: u32) -> NotificationView {
         body: format!("Test notification {sequence}"),
         mention: false,
         noisy: Some(true),
-    }
-}
-
-#[cfg(desktop)]
-pub fn register_actions<R: Runtime>(app: &AppHandle<R>) {
-    let Some(declared) = app.config().plugins.0.get("notifications") else {
-        return;
-    };
-    let parsed: Result<tauri_plugin_notifications::PluginConfig, _> =
-        serde_json::from_value(declared.clone());
-
-    match parsed {
-        Ok(config) => {
-            if let Err(error) = app
-                .notifications()
-                .register_action_types(config.action_types)
-            {
-                log::warn!("could not register the notification actions: {error}");
-            }
-        }
-        Err(error) => log::warn!("the notification actions are not readable: {error}"),
     }
 }
 
@@ -784,13 +659,13 @@ async fn remove_posted<R: Runtime>(app: &AppHandle<R>, ids: Vec<i32>) {
 
 #[cfg(not(target_os = "android"))]
 #[cfg_attr(
-    desktop,
+    not(mobile),
     expect(clippy::unused_async, reason = "the mobile backend awaits the plugin")
 )]
 async fn remove_posted<R: Runtime>(app: &AppHandle<R>, ids: Vec<i32>) {
     #[cfg(mobile)]
     let dismissed = app.notifications().remove_active(ids).await;
-    #[cfg(desktop)]
+    #[cfg(not(mobile))]
     let dismissed = app.notifications().remove_active(ids);
 
     if let Err(error) = dismissed {
@@ -1312,8 +1187,8 @@ pub async fn unregister_push<R: Runtime>(app: &AppHandle<R>) -> Result<(), RpcEr
     Ok(())
 }
 
-/// A desktop build has no distributor to register with, and nothing runs to
-/// receive a push once it is closed.
+/// A host build, which only lints and tests the crate, has no distributor to
+/// register with.
 ///
 /// # Errors
 ///
@@ -1333,9 +1208,9 @@ mod tests {
     use sable_core::protocol::NotificationView;
 
     use super::{
-        Line, MAX_CONVERSATION_LINES, MESSAGE_ACTIONS, NOTIFY_ONCE_WINDOW, Registration,
-        alerts_silently, body, collapsed, cooling, forget, java_hash, provider_for_server_delivery,
-        pusher, remember, room_notification_id, server_web_pusher, shows_content,
+        Line, MAX_CONVERSATION_LINES, MESSAGE_ACTIONS, NOTIFY_ONCE_WINDOW, Registration, body,
+        collapsed, cooling, forget, java_hash, provider_for_server_delivery, pusher, remember,
+        room_notification_id, server_web_pusher, shows_content,
     };
 
     #[test]
@@ -1566,14 +1441,6 @@ mod tests {
         assert_eq!(body(&view(true), true), "shipped the patch");
         assert_eq!(body(&view(false), false), "New message from Ada");
         assert_eq!(body(&view(true), false), "New message");
-    }
-
-    #[test]
-    fn only_a_soundless_rule_on_desktop_or_muted_sounds_silences_an_alert() {
-        assert!(!alerts_silently(Some(true), true));
-        assert!(!alerts_silently(None, true));
-        assert_eq!(alerts_silently(Some(false), true), !cfg!(mobile));
-        assert!(alerts_silently(Some(true), false));
     }
 
     #[test]

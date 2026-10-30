@@ -17,7 +17,6 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2.6.3", features = [] }
-serde_json = "1.0"
 tauri-codegen = "2.7.0"
 
 [dev-dependencies]
@@ -37,13 +36,9 @@ regex-lite = { workspace = true }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tauri = { version = "2.11.3", default-features = false, features = [
-  "common-controls-v6",
   "compression",
-  "dbus",
-  "devtools",
   "dynamic-acl",
-  "tray-icon",
-  "x11",
+  "wry",
 ] }
 tauri-plugin-opener = "2"
 tauri-plugin-deep-link = "2"
@@ -53,8 +48,8 @@ tauri-plugin-os = "2.3.2"
 # WKWebView rejects `navigator.clipboard.writeText` outside a touch or click
 # handler, which a long press never is.
 tauri-plugin-clipboard-manager = "2.4.1"
-# Push stays off here: the feature pulls in Firebase and APNs, which belong to
-# the mobile builds, not the desktop one.
+# Push stays off here: the feature pulls in Firebase and APNs, which only the
+# mobile targets below enable.
 # The published crate hands back a bare token; the fork takes a VAPID key and
 # returns the keys a UnifiedPush distributor produces.
 tauri-plugin-notifications = { version = "0.5.0", git = "https://github.com/SableClient/tauri-plugin-notifications.git", rev = "8097a87cb78cc4bf47c819ed59be4080db319a97", default-features = false }
@@ -73,22 +68,12 @@ sentry = { version = "0.49", default-features = false, features = [
 ] }
 tauri-plugin-sentry = "0.8.0"
 
-# Desktop only: a second launch carrying the OIDC redirect must hand the URL to
-# the running instance instead of starting a rival process.
-[target."cfg(not(any(target_os = \"android\", target_os = \"ios\")))".dependencies]
-tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
-tauri-plugin-window-state = "2.4.1"
-tauri-plugin-updater = "2"
-tauri-plugin-process = "2"
-
-# Windows uses the native backend: notify-rust reports no click there.
+# The plugin only compiles on a host build, which lints and tests the crate,
+# with a desktop backend.
 [target."cfg(any(target_os = \"linux\", target_os = \"macos\"))".dependencies]
 tauri-plugin-notifications = { version = "0.5.0", git = "https://github.com/SableClient/tauri-plugin-notifications.git", rev = "8097a87cb78cc4bf47c819ed59be4080db319a97", default-features = false, features = [
   "notify-rust",
 ] }
-
-[target."cfg(target_os = \"macos\")".dependencies]
-tauri = { version = "2.11.3", default-features = false, features = ["macos-proxy"] }
 
 # The system bar icon contrast is only reachable through the Activity's window.
 [target."cfg(target_os = \"android\")".dependencies]
@@ -107,43 +92,9 @@ tauri-plugin-livekit-mobile = { version = "0.2.0", git = "https://github.com/Sab
 # Injects the --safe-area-inset-* custom properties: Android reports the system
 # bars to nobody, and `env()` there only covers a display cutout.
 tauri-plugin-edge-to-edge = { version = "0.3.3", git = "https://github.com/SableClient/tauri-plugin-edge-to-edge.git", rev = "33c6116c27be28c06df5a9d02231ecc5fdeb93c5" }
-
 # `navigator.share` reaches no webview we ship, so the system share sheet only
-# comes from the native side. The plugin covers every platform but Linux.
-[target."cfg(any(target_os = \"android\", target_os = \"ios\", target_os = \"macos\", target_os = \"windows\"))".dependencies]
+# comes from the native side.
 tauri-plugin-sharekit = { version = "=0.4.0-rc.7", git = "https://github.com/Choochmeque/tauri-plugin-sharekit", rev = "455a166070626bae1da4cf3c471d4d3a40d33d6d" }
-
-[target."cfg(target_os = \"windows\")".dependencies]
-enigo = { version = "0.6.1", default-features = false }
-sable-hdr = { path = "../crates/sable-hdr", version = "0.1.0", features = ["tauri"] }
-sable-loopback = { path = "../crates/sable-loopback", version = "0.1.0", features = ["tauri"] }
-windows = { version = "0.62.2", features = [
-  "Win32_Foundation",
-  "Win32_System_Console",
-  "Win32_System_ProcessStatus",
-  "Win32_System_Threading",
-  "Win32_UI_WindowsAndMessaging",
-] }
-
-[target."cfg(target_os = \"linux\")".dependencies]
-ashpd = { version = "0.13.13", default-features = false, features = ["tokio", "settings"] }
-futures-util = { workspace = true }
-# deep-link 2.6.2 constructs ParseOption without the fields added in 0.21.3.
-rust-ini = "=0.21.1"
-gtk = "0.18"
-webkit2gtk = { version = "2.0", features = ["v2_34"], optional = true }
-tauri-runtime-cef = { version = "0.1.0", git = "https://github.com/SableClient/tauri-runtime-cef", rev = "98deb1763c6c945f103542ee05c632e01edb55f2", optional = true }
-# The CEF runtime currently uses the beta.2 drag event API. Keep Cargo from
-# selecting beta.3, which removed its paths and DragMoved payloads.
-winit = { version = "=0.31.0-beta.2", optional = true }
-cef = { version = "=152.3.0", optional = true }
-tikv-jemallocator = { version = "0.7.0", optional = true }
-libloading = "0.9"
-# Ubuntu 22.04's PipeWire headers predate pipewire-rs 0.10's generated bindings.
-# Audiofox requires 0.10, so Linux builds need newer development headers.
-pipewire = "0.10.1"
-sable-hdr = { path = "../crates/sable-hdr", version = "0.1.0" }
-zbus = "5"
 
 [target."cfg(target_os = \"ios\")".dependencies]
 # backtrace 0.3.76 needs dyld bindings that libc 0.2.190 removed on iOS.
@@ -169,19 +120,9 @@ objc2-photos = { version = "0.3.2", default-features = false, features = [
   "dispatch2",
 ] }
 
-# Exactly one must be on. The Linux release build passes
-# `--no-default-features --features cef`; everything else takes the default.
 [features]
-default = ["wry", "geolocation"]
-wry = ["tauri/wry", "dep:webkit2gtk"]
+default = ["geolocation"]
 geolocation = ["dep:tauri-plugin-geolocation"]
-cef = [
-  "dep:tauri-runtime-cef",
-  "dep:winit",
-  "dep:cef",
-  "dep:tikv-jemallocator",
-  "tauri-runtime-cef/devtools",
-]
 
 [lints]
 workspace = true

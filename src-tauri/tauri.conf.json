@@ -14,12 +14,6 @@
       {
         "title": "Sable",
         "create": false,
-        "hiddenTitle": true,
-        "width": 1280,
-        "height": 720,
-        "resizable": true,
-        "fullscreen": false,
-        "dragDropEnabled": false,
         "backgroundColor": "#24232c"
       }
     ],
@@ -46,8 +40,6 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
-    "createUpdaterArtifacts": true,
     "publisher": "SableClient",
     "copyright": "Copyright © SableClient contributors",
     "shortDescription": "A Matrix client",
@@ -59,31 +51,8 @@
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
-      "icons/128x128@2x.png",
-      "icons/icon.icns",
-      "icons/icon.ico"
+      "icons/128x128@2x.png"
     ],
-    "windows": {
-      "nsis": {
-        "headerImage": "icons/installer/nsis-header.bmp",
-        "sidebarImage": "icons/installer/nsis-sidebar.bmp",
-        "installerIcon": "icons/icon.ico",
-        "uninstallerIcon": "icons/icon.ico",
-        "startMenuFolder": "Sable",
-        "installerHooks": "windows/hooks.nsh"
-      },
-      "wix": {
-        "bannerPath": "icons/installer/wix-banner.bmp",
-        "dialogImagePath": "icons/installer/wix-dialog.bmp"
-      }
-    },
-    "macOS": {
-      "minimumSystemVersion": "12.0",
-      "entitlements": "./Entitlements.plist",
-      "dmg": {
-        "background": "icons/installer/dmg-background.png"
-      }
-    },
     "android": {
       "versionCode": 20010040,
       "debugApplicationIdSuffix": ".debug"
@@ -100,12 +69,6 @@
     }
   },
   "plugins": {
-    "updater": {
-      "endpoints": [
-        "https://git.sable.moe/SableClient/sable-next/releases/download/latest/latest.json"
-      ],
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDIxNEQxMkJEQzU0QTI0MDcKUldRSEpFckZ2UkpOSWVhMW01SFRIb0JFZDhldVZNLzV6R29nb0I5TWdKcTRQOXRXN3JwdXQ0OEkK"
-    },
     "notifications": {
       "actionTypes": [
         {
@@ -140,18 +103,9 @@
             }
           ]
         }
-      ],
-      "windows": {
-        "registerUnpackagedActivator": true
-      }
+      ]
     },
     "deep-link": {
-      "desktop": {
-        "schemes": [
-          "moe.sable.next",
-          "matrix"
-        ]
-      },
       "mobile": [
         {
           "scheme": [

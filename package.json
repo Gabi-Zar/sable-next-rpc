@@ -36,8 +36,7 @@
     "wasm:watch": "watchexec --restart --watch crates/sable-core --watch crates/sable-wasm --watch crates/sable-model --watch crates/sable-model-wasm -- pnpm wasm:dev",
     "android:build": "node scripts/build/android.mjs",
     "ios:frameworks": "node scripts/build/download-ios-frameworks.mjs",
-    "tauri": "tauri",
-    "tauri:cef": "node scripts/build/tauri.mjs cef"
+    "tauri": "tauri"
   },
   "dependencies": {
     "@arborium/arborium": "^2.18.2",
@@ -57,8 +56,6 @@
     "@tauri-apps/plugin-fs": "2.7.1",
     "@tauri-apps/plugin-geolocation": "2.5.0",
     "@tauri-apps/plugin-os": "2.4.0",
-    "@tauri-apps/plugin-process": "2.4.0",
-    "@tauri-apps/plugin-updater": "2.14.0",
     "badwords-list": "2.0.1-4",
     "bits-ui": "^2.19.2",
     "blurhash": "2.0.5",

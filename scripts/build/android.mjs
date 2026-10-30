@@ -127,8 +127,6 @@ try {
       ...targets,
       '--',
       '--no-default-features',
-      '--features',
-      'wry',
     ],
     { env }
   );

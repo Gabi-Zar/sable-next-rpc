@@ -4,17 +4,16 @@ import { platform } from '@tauri-apps/plugin-os';
 import { electronBridge } from './electron';
 
 export function isDesktopAuthClient(): boolean {
-  return !!electronBridge() || (isTauri() && !['ios', 'android'].includes(platform()));
+  return !!electronBridge();
 }
 
 export async function openSystemAuthUrl(url: string): Promise<void> {
-  if (!isDesktopAuthClient()) throw new Error('System browser fallback requires a desktop app');
+  const electron = electronBridge();
+  if (!electron) throw new Error('System browser fallback requires a desktop app');
   if (!['https:', 'http:'].includes(new URL(url).protocol)) {
     throw new Error('Authentication requires an HTTP or HTTPS URL');
   }
-  const electron = electronBridge();
-  if (electron) await electron.openAuthInSystemBrowser(url);
-  else await invoke('open_external_url', { url });
+  await electron.openAuthInSystemBrowser(url);
 }
 
 export interface ExternalAuthWindow {
@@ -38,14 +37,8 @@ export function openExternalAuthWindow(name: string): ExternalAuthWindow | null 
             closeBrowser = () => electron.closeAuthWindow(name);
             await electron.openAuthWindow(name, url, callbackUri);
           } else {
-            const mobile = ['ios', 'android'].includes(platform());
-            closeBrowser = () =>
-              invoke(mobile ? 'close_in_app_auth_window' : 'close_auth_window', { id: name });
-            await invoke(mobile ? 'open_in_app_auth_url' : 'open_auth_window', {
-              id: name,
-              url,
-              callbackUri,
-            });
+            closeBrowser = () => invoke('close_in_app_auth_window', { id: name });
+            await invoke('open_in_app_auth_url', { id: name, url, callbackUri });
           }
         })();
         return opening;

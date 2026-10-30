@@ -4,11 +4,6 @@ import type { CoreEvent } from '#src/generated/protocol';
 import type { CoreClient } from '#lib/core/client.svelte.js';
 import { preferences } from '#lib/settings/preferences.svelte.js';
 
-const hdr = vi.hoisted(() => ({
-  hdrShareSupported: vi.fn(() => false),
-  listHdrMonitors: vi.fn(() => Promise.resolve([{ index: 0, name: 'Main', hdr: true }])),
-}));
-vi.mock('#lib/platform/hdr-share.js', () => hdr);
 const screenAudio = vi.hoisted(() => ({ supported: vi.fn(() => false) }));
 vi.mock('#lib/platform/screen-audio.js', async (original) => ({
   ...(await original<typeof import('#lib/platform/screen-audio.js')>()),
@@ -1081,27 +1076,6 @@ test('two devices of one account keep their own voice state', () => {
   expect(states.get('@me:x#1')?.speaking).toBe(true);
 });
 
-test('an HDR monitor on the Windows app is offered before the browser picker', async () => {
-  const { client, transport } = harness();
-  const setEnabled = vi.fn(() => Promise.resolve());
-  transport.capabilities = { screenShare: { setEnabled } };
-  const session = new CallSession(client, { createTransport: () => transport });
-  await session.join('!room:example.org', { microphone: true, camera: false });
-  hdr.hdrShareSupported.mockReturnValue(true);
-
-  await session.toggleScreenShare();
-  expect(session.choosingScreenSource).toEqual([{ index: 0, name: 'Main', hdr: true }]);
-  expect(setEnabled).not.toHaveBeenCalled();
-
-  await session.shareScreenFrom({ kind: 'hdr', monitor: 0 });
-  expect(session.choosingScreenSource).toBeNull();
-  expect(setEnabled).toHaveBeenLastCalledWith(true, undefined, { kind: 'hdr', monitor: 0 });
-
-  await session.shareScreenFrom(null);
-  expect(setEnabled).toHaveBeenLastCalledWith(true, undefined, undefined);
-  hdr.hdrShareSupported.mockReturnValue(false);
-});
-
 test('a screen shared without its sound is reported as a sound failure', async () => {
   const { client, transport } = harness();
   const setEnabled = vi.fn(() => Promise.reject(new ScreenAudioError()));
@@ -1114,28 +1088,20 @@ test('a screen shared without its sound is reported as a sound failure', async (
   expect(session.deviceError).toBe('screenAudio');
 });
 
-test('on Linux the HDR choice is carried through the screen sound picker', async () => {
+test('the screen sound picker precedes the screen share when sound can be captured', async () => {
   const { client, transport } = harness();
   const setEnabled = vi.fn(() => Promise.resolve());
   transport.capabilities = { screenShare: { setEnabled } };
   const session = new CallSession(client, { createTransport: () => transport });
   await session.join('!room:example.org', { microphone: true, camera: false });
-  hdr.hdrShareSupported.mockReturnValue(true);
   screenAudio.supported.mockReturnValue(true);
 
   await session.toggleScreenShare();
-  await session.shareScreenFrom({ kind: 'hdr', monitor: 0 });
   expect(session.choosingScreenAudio).toBe(true);
   expect(setEnabled).not.toHaveBeenCalled();
 
   await session.shareScreenWith({ kind: 'none' });
-  expect(setEnabled).toHaveBeenLastCalledWith(true, { kind: 'none' }, { kind: 'hdr', monitor: 0 });
-
-  hdr.hdrShareSupported.mockReturnValue(false);
-  await session.toggleScreenShare();
-  expect(session.choosingScreenSource).toBeNull();
-  await session.shareScreenWith({ kind: 'none' });
-  expect(setEnabled).toHaveBeenLastCalledWith(true, { kind: 'none' }, undefined);
+  expect(setEnabled).toHaveBeenLastCalledWith(true, { kind: 'none' });
   screenAudio.supported.mockReturnValue(false);
 });
 
@@ -1155,5 +1121,4 @@ test('toggling a running screen share stops it without reopening a picker', asyn
 
   expect(setEnabled).toHaveBeenCalledExactlyOnceWith(false);
   expect(session.choosingScreenAudio).toBe(false);
-  expect(session.choosingScreenSource).toBeNull();
 });

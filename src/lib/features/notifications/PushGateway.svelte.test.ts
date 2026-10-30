@@ -12,7 +12,7 @@ vi.mock('#lib/platform/push.js', () => ({
 }));
 vi.mock('#lib/platform/notifications.js', () => ({
   deliversWebPush: () => false,
-  deliversNativePush: () => Promise.resolve(true),
+  deliversNativePush: () => true,
 }));
 vi.mock('./native-push.js', () => ({
   selectedPushDistributor: () => 'ntfy',

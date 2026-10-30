@@ -18,20 +18,12 @@
   import AccountLocked from '#lib/features/sidebar/AccountLocked.svelte';
   import favicon from '#lib/assets/favicon.png';
   import { trackKeyboardInset } from '#lib/platform/keyboard.js';
-  import { trackInspectorShortcut } from '#lib/platform/devtools.js';
-  import { trackZoomShortcuts } from '#lib/platform/zoom-shortcuts.js';
-  import { suppressNativeContextMenu } from '#lib/platform/context-menu.js';
   import { blockEdgeNavigation } from '#lib/platform/edge-navigation.js';
   import { systemDark } from '#lib/platform/system-theme.js';
   import { hostsServiceWorker, registerServiceWorker } from '#lib/platform/service-worker.js';
   import { notificationPermalink } from '#lib/features/notifications/notification-link.js';
   import { guardTouchClicks } from '#lib/ui/trailing-click.js';
-  import {
-    applyDesktopWindowSettings,
-    setWindowFullscreen,
-    supportsDesktopWindow,
-    titleBarKind,
-  } from '#lib/platform/window-decorations.js';
+  import { applyDesktopWindowSettings, titleBarKind } from '#lib/platform/window-decorations.js';
   import { electronBridge } from '#lib/platform/electron.js';
   import { runtimeConfig } from '#lib/config/runtime-config.js';
   import { applyDeploymentDefaults, preferences } from '#lib/settings/preferences.svelte.js';
@@ -106,9 +98,6 @@
     }
     const stopTrackingKeyboard = trackKeyboardInset();
     const stopGuardingClicks = guardTouchClicks();
-    const stopInspectorShortcut = trackInspectorShortcut();
-    const stopZoomShortcuts = trackZoomShortcuts();
-    const stopSuppressingContextMenu = suppressNativeContextMenu();
     const stopBlockingEdgeNavigation = blockEdgeNavigation();
     void registerServiceWorker();
     void runtimeConfig().then((config) => {
@@ -143,9 +132,6 @@
       identityChannel?.close();
       stopTrackingKeyboard();
       stopGuardingClicks();
-      stopInspectorShortcut();
-      stopZoomShortcuts();
-      stopSuppressingContextMenu();
       stopBlockingEdgeNavigation();
       stopMatrixLinks();
       core.stop();
@@ -256,12 +242,6 @@
 <svelte:document
   onvisibilitychange={() => {
     if (document.visibilityState === 'visible') void updateCatalogThemes();
-  }}
-  onfullscreenchange={() => {
-    if (!supportsDesktopWindow()) return;
-    setWindowFullscreen(document.fullscreenElement !== null).catch((error: unknown) => {
-      console.debug('[sable window] the window fullscreen state was not applied', error);
-    });
   }}
 />
 

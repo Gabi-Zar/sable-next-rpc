@@ -31,17 +31,3 @@ storeFile=<absolute path to upload-keystore.jks>
 
 Release APKs built without `keystore.properties` are unsigned. Sign them before
 installation.
-
-### Desktop auto-updater
-
-```bash
-# TAURI_SIGNING_PRIVATE_KEY_PASSWORD may be empty
-pnpm tauri signer generate -w ~/.tauri/sable.key
-```
-
-- `TAURI_SIGNING_PRIVATE_KEY`: contents of `~/.tauri/sable.key`
-- `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`: the chosen password
-- `~/.tauri/sable.key.pub` goes in `plugins.updater.pubkey` in
-  `src-tauri/tauri.conf.json`
-
-Losing the private key prevents publishing updates to installed apps.

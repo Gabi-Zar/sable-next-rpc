@@ -1,10 +1,9 @@
-import { isTauri } from '@tauri-apps/api/core';
-import { type as osType } from '@tauri-apps/plugin-os';
 import parseVersion from 'semver/functions/parse.js';
 
 import { SABLE_UPDATE_MANIFEST_URL } from '#lib/config/links.js';
 
 import { electronBridge } from './electron.js';
+import { isNativeMobile } from './os.js';
 
 export interface AvailableUpdate {
   version: string;
@@ -29,9 +28,7 @@ export function supportsAutoUpdate(): boolean {
 
 export function updatePlatform(): 'desktop' | 'mobile' | 'web' {
   if (electronBridge()) return 'desktop';
-  if (!isTauri()) return 'web';
-  const os = osType();
-  return os === 'android' || os === 'ios' ? 'mobile' : 'desktop';
+  return isNativeMobile() ? 'mobile' : 'web';
 }
 
 function isNewerVersion(candidate: string, current: string): boolean {
@@ -53,62 +50,21 @@ export async function checkForMobileUpdate(): Promise<boolean> {
       : undefined;
   return typeof latest === 'string' && isNewerVersion(latest, current);
 }
-let handle: { close: () => Promise<void> } | null = null;
-
 export async function checkForUpdate(): Promise<AvailableUpdate | null> {
   if (!supportsAutoUpdate()) return null;
 
   const electron = electronBridge();
-  if (electron) {
-    const found = await electron.checkForUpdate();
-    if (!found) return null;
-    const available: AvailableUpdate = {
-      ...found,
-      install: (onProgress) => electron.downloadUpdate(onProgress),
-    };
-    for (const listener of listeners) listener(available);
-    return available;
-  }
-
-  const { check } = await import('@tauri-apps/plugin-updater');
-  const update = await check();
-
-  if (handle) {
-    await handle.close().catch((error: unknown) => {
-      console.debug('[sable updates] releasing the previous update failed', error);
-    });
-  }
-  handle = update;
-  if (!update) return null;
-
+  if (!electron) return null;
+  const found = await electron.checkForUpdate();
+  if (!found) return null;
   const available: AvailableUpdate = {
-    version: update.version,
-    notes: update.body,
-    install: async (onProgress) => {
-      let downloaded = 0;
-      let total = 0;
-      await update.downloadAndInstall((event) => {
-        if (event.event === 'Started') {
-          total = event.data.contentLength ?? 0;
-        } else if (event.event === 'Progress') {
-          downloaded += event.data.chunkLength;
-          onProgress(total > 0 ? Math.min(Math.round((downloaded / total) * 100), 100) : 0);
-        }
-      });
-      handle = null;
-    },
+    ...found,
+    install: (onProgress) => electron.downloadUpdate(onProgress),
   };
   for (const listener of listeners) listener(available);
-
   return available;
 }
 
 export async function relaunchApp(): Promise<void> {
-  const electron = electronBridge();
-  if (electron) {
-    await electron.installUpdate();
-    return;
-  }
-  const { relaunch } = await import('@tauri-apps/plugin-process');
-  await relaunch();
+  await electronBridge()?.installUpdate();
 }

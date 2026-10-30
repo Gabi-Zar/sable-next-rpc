@@ -8,10 +8,7 @@ const ABI_CODES = { arm: 1, arm64: 2 };
 
 export const FASTLANE_DIR = 'fastlane/metadata/android/en-US/changelogs';
 
-export const METAINFO_FILES = [
-  'packaging/flatpak/moe.sable.client.metainfo.xml',
-  'packaging/flatpak/electron/moe.sable.next.electron.metainfo.xml',
-];
+export const METAINFO_FILES = ['packaging/flatpak/moe.sable.client.metainfo.xml'];
 
 export function fastlaneChangelogs(version) {
   const { major, minor, patch } = stableVersion(version);

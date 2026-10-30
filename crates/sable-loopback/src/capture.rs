@@ -21,11 +21,6 @@ const MAX_PACKET_FRAMES: usize = 16_384;
 pub type Sink = Box<dyn FnMut(&[u8]) -> bool + Send>;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-#[cfg_attr(
-    feature = "tauri",
-    derive(serde::Deserialize),
-    serde(tag = "kind", rename_all = "lowercase")
-)]
 pub enum Selection {
     System { exclude: Vec<String> },
     Apps { include: Vec<String> },

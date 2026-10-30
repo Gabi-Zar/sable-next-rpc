@@ -6,8 +6,6 @@ export type ShortcutId =
   | 'app.createRoom'
   | 'app.showShortcuts'
   | 'app.openSettings'
-  | 'app.closeWindow'
-  | 'app.quit'
   | 'navigation.openRoomSearch'
   | 'navigation.previousRoom'
   | 'navigation.nextRoom'
@@ -53,7 +51,6 @@ export interface ShortcutDefinition {
   category: 'general' | 'navigation' | 'room' | 'call' | 'composer';
   binding: string;
   allowInEditable?: boolean;
-  desktopOnly?: boolean;
 }
 
 export const SHORTCUT_CATEGORIES: ReadonlyArray<{
@@ -105,22 +102,6 @@ export const SHORTCUTS: readonly ShortcutDefinition[] = [
     labelKey: 'shortcuts.openSettings',
     category: 'general',
     binding: 'mod+,',
-  },
-  {
-    id: 'app.closeWindow',
-    labelKey: 'shortcuts.closeWindow',
-    category: 'general',
-    binding: 'mod+w',
-    allowInEditable: true,
-    desktopOnly: true,
-  },
-  {
-    id: 'app.quit',
-    labelKey: 'shortcuts.quit',
-    category: 'general',
-    binding: 'mod+q',
-    allowInEditable: true,
-    desktopOnly: true,
   },
   {
     id: 'navigation.previousRoom',

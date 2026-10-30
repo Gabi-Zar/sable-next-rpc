@@ -19,7 +19,7 @@ export interface NativePushConfig {
 }
 
 export async function registerNativePushConfig(config: NativePushConfig): Promise<void> {
-  if (!(await deliversNativePush())) return;
+  if (!deliversNativePush()) return;
 
   await invoke('register_push', {
     config: {
@@ -44,7 +44,7 @@ export async function registerNativePushConfig(config: NativePushConfig): Promis
 }
 
 export async function unregisterNativePushConfig(): Promise<void> {
-  if (!(await deliversNativePush())) return;
+  if (!deliversNativePush()) return;
 
   await invoke('unregister_push');
 }

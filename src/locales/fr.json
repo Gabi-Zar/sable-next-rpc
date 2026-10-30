@@ -1520,7 +1520,6 @@
     "troubleshootPermissionDenied": "Les notifications de Sable sont bloquées sur cet appareil.",
     "troubleshootAlertsOn": "Les notifications système sont activées.",
     "troubleshootAlertsOff": "Les notifications système sont désactivées dans ces paramètres.",
-    "troubleshootDesktop": "L’application de bureau alerte tant qu’elle est ouverte et n’utilise aucun service push.",
     "troubleshootNotApplicable": "Ignoré car une vérification précédente a échoué.",
     "troubleshootTransportWeb": "Ce navigateur peut recevoir des notifications push web.",
     "troubleshootTransportUnsupported": "Ce navigateur ne peut pas recevoir de notifications push.",

@@ -1,5 +1,3 @@
-import { Channel, invoke } from '@tauri-apps/api/core';
-
 import { electronBridge } from './electron';
 import workletUrl from './screen-audio-worklet.js?url&no-inline';
 
@@ -15,19 +13,17 @@ let active: { stop: () => Promise<void> } | null = null;
 export async function startScreenAudioStream(
   selection: Exclude<ScreenAudioChoice, { kind: 'none' }>
 ): Promise<MediaStreamTrack> {
+  const electron = electronBridge();
+  if (!electron) throw new Error('screen audio stream unsupported');
   await stopScreenAudioStream();
   const context = new AudioContext({ sampleRate: SAMPLE_RATE, latencyHint: 'interactive' });
-  const electron = electronBridge();
   let unsubscribe: (() => void) | undefined;
-  const frames = electron ? undefined : new Channel<ArrayBuffer>();
   const stop = async (): Promise<void> => {
     unsubscribe?.();
-    if (frames) frames.onmessage = () => undefined;
     await context.close().catch((error: unknown) => {
       console.debug('[sable call] screen audio context not closed', error);
     });
-    if (electron) await electron.stopScreenAudio();
-    else await invoke('stop_screen_audio');
+    await electron.stopScreenAudio();
   };
   active = { stop };
 
@@ -54,11 +50,9 @@ export async function startScreenAudioStream(
         console.warn('[sable call] dropped a screen audio chunk', error);
       }
     };
-    if (electron) unsubscribe = electron.onScreenAudioFrames(receive);
-    else if (frames) frames.onmessage = receive;
+    unsubscribe = electron.onScreenAudioFrames(receive);
     await context.resume();
-    if (electron) await electron.startScreenAudioStream(selection);
-    else await invoke('start_screen_audio_stream', { selection, frames });
+    await electron.startScreenAudioStream(selection);
     const track = destination.stream.getAudioTracks().at(0);
     if (!track) throw new Error('screen audio stream gave no track');
     return track;

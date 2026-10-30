@@ -2,8 +2,6 @@ import { rememberScreenAudioChoice, screenAudioSupported } from '#lib/platform/s
 import type { ScreenAudioChoice } from '#lib/platform/screen-audio-stream.js';
 import { createContext } from 'svelte';
 
-import { hdrShareSupported, listHdrMonitors, type HdrMonitor } from '#lib/platform/hdr-share.js';
-
 import type { CallMemberView, CoreEvent } from '#src/generated/protocol';
 import type { CoreClient } from '#lib/core/client.svelte.js';
 import { joinCall, type CallGrant } from '#lib/core/api/calls.js';
@@ -14,7 +12,6 @@ import type {
   CallTransport,
   CallTransportCapabilities,
   CallTransportState,
-  ScreenSource,
 } from './call-transport';
 import { decodeCallKey, idleTransportState, ignoreError, ScreenAudioError } from './call-transport';
 import { acquireCallOwner, type CallOwnerLease } from './call-owner';
@@ -118,8 +115,6 @@ export class CallSession {
   listenOnly = $state(false);
   #deviceErrorTimer: ReturnType<typeof setTimeout> | undefined;
   choosingScreenAudio = $state(false);
-  choosingScreenSource = $state.raw<HdrMonitor[] | null>(null);
-  #pendingScreenSource: ScreenSource | null = null;
 
   toggleWatchScreenShare(trackId: string): void {
     this.watchedScreenShareIds = this.watchedScreenShareIds.includes(trackId)
@@ -546,38 +541,20 @@ export class CallSession {
       void playSound('screenshare_stop');
       return;
     }
-    const monitors = hdrShareSupported()
-      ? await listHdrMonitors().catch((error: unknown) => {
-          console.debug('[sable call] could not list HDR monitors', error);
-          return [];
-        })
-      : [];
-    if (monitors.length > 0) this.choosingScreenSource = monitors;
-    else await this.shareScreenFrom(null);
+    if (screenAudioSupported()) this.choosingScreenAudio = true;
+    else await this.#shareScreen(undefined);
     void playSound('screenshare_start');
-  }
-
-  async shareScreenFrom(source: ScreenSource | null): Promise<void> {
-    this.choosingScreenSource = null;
-    if (screenAudioSupported()) {
-      this.#pendingScreenSource = source;
-      this.choosingScreenAudio = true;
-      return;
-    }
-    await this.#shareScreen(undefined, source);
   }
 
   async shareScreenWith(audio: ScreenAudioChoice): Promise<void> {
     this.choosingScreenAudio = false;
     rememberScreenAudioChoice(audio);
-    const source = this.#pendingScreenSource;
-    this.#pendingScreenSource = null;
-    await this.#shareScreen(audio, source);
+    await this.#shareScreen(audio);
   }
 
-  async #shareScreen(audio: ScreenAudioChoice | undefined, source: ScreenSource | null) {
+  async #shareScreen(audio: ScreenAudioChoice | undefined) {
     await this.#device('screen', () =>
-      this.#media?.capabilities.screenShare?.setEnabled(true, audio, source ?? undefined)
+      this.#media?.capabilities.screenShare?.setEnabled(true, audio)
     );
   }
 

@@ -1,7 +1,7 @@
 use sable_core::v1_migration::{Entry, IndexedDbSnapshot, LegacySession};
 use tauri::{Manager as _, State};
 
-use crate::{AppState, BrowserEngine};
+use crate::AppState;
 
 #[tauri::command]
 pub async fn v1_migration_complete(state: State<'_, AppState>) -> Result<bool, String> {
@@ -14,7 +14,7 @@ pub async fn v1_migration_complete(state: State<'_, AppState>) -> Result<bool, S
 
 #[tauri::command]
 pub async fn begin_v1_migration(
-    app: tauri::AppHandle<BrowserEngine>,
+    app: tauri::AppHandle<tauri::Wry>,
     state: State<'_, AppState>,
     sessions: Vec<LegacySession>,
     active_user_id: Option<String>,

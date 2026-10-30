@@ -21,23 +21,16 @@ export async function subscribeDeepLinks(onUrls: (urls: string[]) => void): Prom
   }
 }
 
-async function invokedLinks(command: string): Promise<string[]> {
-  try {
-    return (await invoke<string[] | null>(command)) ?? [];
-  } catch {
-    return [];
-  }
-}
-
 async function launchDeepLinks(): Promise<string[]> {
   const electron = electronBridge();
   if (electron) return electron.takeDeepLinks();
   if (!isTauri()) return [];
 
-  return [
-    ...(await invokedLinks('plugin:deep-link|get_current')),
-    ...(await invokedLinks('pending_deep_links')),
-  ];
+  try {
+    return (await invoke<string[] | null>('plugin:deep-link|get_current')) ?? [];
+  } catch {
+    return [];
+  }
 }
 
 let launchLinks: Promise<string[]> | undefined;

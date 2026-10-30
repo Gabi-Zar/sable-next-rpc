@@ -52,7 +52,6 @@
   import { windowActivity } from '#lib/platform/window-activity.js';
   import { setUnreadBadge } from '#lib/platform/badge.js';
   import { keepStorage } from '#lib/platform/persistent-storage.js';
-  import { closeWindow, quitApp } from '#lib/platform/window-decorations.js';
   import { electronBridge, type ScreenShareCandidate } from '#lib/platform/electron.js';
   import { type FaviconState, faviconState, setFavicon } from '#lib/ui/favicon.js';
   import idleFavicon from '#lib/assets/favicon.png';
@@ -1061,12 +1060,6 @@
       'app.openSettings': () => {
         void goto(resolve('/(app)/settings'));
       },
-      'app.closeWindow': () => {
-        void closeWindow();
-      },
-      'app.quit': () => {
-        void quitApp();
-      },
       'navigation.previousRoom': () => {
         const target = roomAtOffset(openRoomId, -1);
         if (target) jumpToRoom(target);
@@ -1148,18 +1141,6 @@
           volumeOf={callVolumeOf}
           setVolume={(identity, volume, screen) =>
             callSession.setParticipantVolume(identity, volume, screen)}
-        />
-      {/await}
-    {/if}
-    {#if callSession.choosingScreenSource}
-      {@const monitors = callSession.choosingScreenSource}
-      {#await import('#lib/features/call/ScreenShareSourceDialog.svelte') then { default: ScreenShareSourceDialog }}
-        <ScreenShareSourceDialog
-          {monitors}
-          onShare={(source) => void callSession.shareScreenFrom(source)}
-          onCancel={() => {
-            callSession.choosingScreenSource = null;
-          }}
         />
       {/await}
     {/if}

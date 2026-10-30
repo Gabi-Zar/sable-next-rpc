@@ -13,15 +13,14 @@ const builderRequire = createRequire(require.resolve('electron-builder/package.j
 const { load } = createRequire(builderRequire.resolve('app-builder-lib/package.json'))('js-yaml');
 const sha = 'a'.repeat(64);
 
-for (const [flavor, dir, id] of [
-  ['default', 'packaging/flatpak', 'moe.sable.client'],
-  ['electron', 'packaging/flatpak/electron', 'moe.sable.next.electron'],
-]) {
+{
+  const dir = 'packaging/flatpak';
+  const id = 'moe.sable.client';
   for (const [arch, artifactArch] of [
     ['x86_64', 'x64'],
     ['aarch64', 'arm64'],
   ]) {
-    test(`${flavor} Flatpak extracts ${arch} to the launcher path`, async (t) => {
+    test(`Flatpak extracts ${arch} to the launcher path`, async (t) => {
       const cwd = await mkdtemp(join(tmpdir(), 'sable-flatpak-'));
       t.after(() => rm(cwd, { recursive: true, force: true }));
       await mkdir(join(cwd, dir), { recursive: true });
@@ -30,7 +29,6 @@ for (const [flavor, dir, id] of [
         process.execPath,
         [
           join(root, 'scripts/ci/render-flatpak-stable.mjs'),
-          ...(flavor === 'electron' ? ['--electron'] : []),
           '2.1.4',
           arch === 'x86_64' ? sha : '-',
           arch === 'aarch64' ? sha : '-',
@@ -38,8 +36,7 @@ for (const [flavor, dir, id] of [
         { cwd }
       );
       const manifest = load(await readFile(join(cwd, dir, `${id}.yml`), 'utf8'));
-      const installDir = flavor === 'electron' ? 'sable-electron' : 'sable';
-      const module = manifest.modules.find((entry) => entry.name === installDir);
+      const module = manifest.modules.find((entry) => entry.name === 'sable');
       const sources = module.sources.filter((entry) => entry.type === 'archive');
       assert.equal(sources.length, 1);
       const source = sources[0];
@@ -71,14 +68,14 @@ for (const [flavor, dir, id] of [
       await writeFile(join(bin, 'zypak-wrapper'), '#!/bin/sh\nprintf "%s\\n" "$1"\n', {
         mode: 0o755,
       });
-      const launcher = join(root, dir, flavor === 'electron' ? 'sable-electron.sh' : 'sable.sh');
+      const launcher = join(root, dir, 'sable.sh');
       const executable = execFileSync('sh', [launcher], {
         env: { ...process.env, PATH: `${bin}:${process.env.PATH}` },
         encoding: 'utf8',
       }).trim();
       assert.ok(executable.startsWith('/app/'));
       execFileSync(join(app, executable.slice('/app/'.length)));
-      assert.equal(await readFile(join(app, installDir, 'resources/app.asar'), 'utf8'), 'app');
+      assert.equal(await readFile(join(app, 'sable', 'resources/app.asar'), 'utf8'), 'app');
     });
   }
 }

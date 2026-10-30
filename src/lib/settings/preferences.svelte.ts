@@ -213,7 +213,6 @@ export interface Preferences {
   renderProfileColors: boolean;
   reducedMotion: boolean;
   pageZoom: number;
-  zoomShortcuts: boolean;
   textScale: number;
   highContrast: boolean;
   alwaysShowAltText: boolean;
@@ -566,7 +565,6 @@ const DEFAULTS: Preferences = {
   renderProfileColors: true,
   reducedMotion: prefersReducedMotion(),
   pageZoom: 1,
-  zoomShortcuts: true,
   textScale: 1,
   highContrast: false,
   alwaysShowAltText: false,

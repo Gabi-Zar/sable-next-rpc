@@ -24,7 +24,6 @@ for (const arch of ['x86_64', 'aarch64']) {
       process.execPath,
       [
         join(root, 'scripts/ci/render-flatpak-nightly.mjs'),
-        '--electron',
         '2.2.3-nightly.20261030',
         'nightly-20261030',
         arch === 'x86_64' ? `${sha}:123` : '-',

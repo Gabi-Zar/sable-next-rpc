@@ -629,18 +629,8 @@
     editingZoom = false;
   }
 
-  let nativeShare = $state(false);
-  let canShare = $derived(nativeShare || typeof navigator.share === 'function');
-
-  $effect(() => {
-    let active = true;
-    void sharesNatively().then((supported) => {
-      if (active) nativeShare = supported;
-    });
-    return () => {
-      active = false;
-    };
-  });
+  const nativeShare = sharesNatively();
+  const canShare = nativeShare || typeof navigator.share === 'function';
 
   function openImageMenu(event: MouseEvent): void {
     event.preventDefault();

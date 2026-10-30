@@ -67,18 +67,6 @@ export async function saveFile(
       import('@tauri-apps/plugin-fs'),
     ]);
 
-    if (!askLocation) {
-      const { downloadDir, join } = await import('@tauri-apps/api/path');
-      const directory = await downloadDir();
-      const create = async (candidate: string) =>
-        writeFile(await join(directory, candidate), bytes, { createNew: true });
-      await create(name).catch((error: unknown) => {
-        console.debug('[sable files] download name is taken, retrying', error);
-        return create(timestamped(name));
-      });
-      return 'saved';
-    }
-
     const path = await save({ defaultPath: name });
     if (path === null) return 'cancelled';
 
@@ -174,13 +162,9 @@ export async function saveVideoToPhotos(
   }
 }
 
-export async function sharesNatively(): Promise<boolean> {
+export function sharesNatively(): boolean {
   const electron = electronBridge();
-  if (electron) return electron.platform === 'darwin';
-  if (!isTauri()) return false;
-  const { type } = await import('@tauri-apps/plugin-os');
-  const os = type();
-  return os === 'android' || os === 'ios' || os === 'macos' || os === 'windows';
+  return electron ? electron.platform === 'darwin' : isNativeMobile();
 }
 
 export async function shareFile(
@@ -197,36 +181,28 @@ export async function shareFile(
       await electron.shareFile({ name, bytes });
       return 'saved';
     }
-    const [
-      { type },
-      { appCacheDir, join },
-      { mkdir, remove, writeFile },
-      { shareFile: shareNative },
-    ] = await Promise.all([
-      import('@tauri-apps/plugin-os'),
-      import('@tauri-apps/api/path'),
-      import('@tauri-apps/plugin-fs'),
-      import('@choochmeque/tauri-plugin-sharekit-api'),
-    ]);
+    const [{ appCacheDir, join }, { mkdir, remove, writeFile }, { shareFile: shareNative }] =
+      await Promise.all([
+        import('@tauri-apps/api/path'),
+        import('@tauri-apps/plugin-fs'),
+        import('@choochmeque/tauri-plugin-sharekit-api'),
+      ]);
 
     const directory = await join(await appCacheDir(), 'outgoing-share');
     await mkdir(directory, { recursive: true });
     const path = await join(directory, cacheName(name));
     await writeFile(path, bytes);
 
-    const os = type();
     try {
       await shareNative(path, {
         mimeType: mime,
         title: name,
-        position: anchor && sharePosition(anchor, os === 'macos'),
+        position: anchor && { x: anchor.left, y: anchor.top },
       });
     } finally {
-      if (os === 'android' || os === 'ios') {
-        await remove(path).catch((error: unknown) => {
-          console.debug('[sable files] shared temp file not removed', path, error);
-        });
-      }
+      await remove(path).catch((error: unknown) => {
+        console.debug('[sable files] shared temp file not removed', path, error);
+      });
     }
     return 'saved';
   } catch (error) {
@@ -238,10 +214,6 @@ export async function shareFile(
 function cacheName(name: string): string {
   const safe = name.replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^[.-]+/, '');
   return safe || 'attachment';
-}
-
-function sharePosition(anchor: DOMRect, fromBottom: boolean): { x: number; y: number } {
-  return { x: anchor.left, y: fromBottom ? window.innerHeight - anchor.bottom : anchor.top };
 }
 
 function timestamped(name: string): string {

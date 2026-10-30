@@ -35,8 +35,5 @@
   "sounds": {
     "call_leave": "Sair de chamada",
     "call_join": "Entrar na chamada"
-  },
-  "shortcuts": {
-    "quit": "Sair de Sable"
   }
 }

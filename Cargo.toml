@@ -145,8 +145,8 @@ opt-level = 1
 [profile.dev.package.app]
 opt-level = 1
 
-# Full LTO stays off `release`, which also builds the `src-tauri` desktop
-# binary. `strip` keeps the metadata wasm-bindgen reads and wasm-opt then drops.
+# Full LTO stays off `release`, which also builds the `src-tauri` mobile
+# libraries. `strip` keeps the metadata wasm-bindgen reads and wasm-opt then drops.
 [profile.wasm-release]
 inherits = "release"
 lto = true

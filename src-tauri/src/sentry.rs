@@ -3,29 +3,6 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
 };
 
-#[cfg(target_os = "linux")]
-fn consent_path() -> Option<std::path::PathBuf> {
-    let path = crate::app_dirs::config_dir()?.join("sentry-consent");
-    let state = std::env::var_os("XDG_STATE_HOME")
-        .map(std::path::PathBuf::from)
-        .filter(|dir| dir.is_absolute())
-        .or_else(|| {
-            std::env::var_os("HOME").map(|home| std::path::PathBuf::from(home).join(".local/state"))
-        })?;
-    let legacy = state.join("sable-next/sentry-consent");
-    if crate::app_dirs::adopt_file(&legacy, &path).is_ok() && path.exists() {
-        let _ = std::fs::remove_file(&legacy);
-    }
-    Some(path)
-}
-
-#[cfg(target_os = "windows")]
-fn consent_path() -> Option<std::path::PathBuf> {
-    std::env::var_os("LOCALAPPDATA")
-        .or_else(|| std::env::var_os("APPDATA"))
-        .map(|root| std::path::PathBuf::from(root).join("sable-next/sentry-consent"))
-}
-
 #[cfg(target_os = "android")]
 fn consent_path() -> Option<std::path::PathBuf> {
     let home = std::env::var_os("HOME")?;
@@ -36,7 +13,7 @@ fn consent_path() -> Option<std::path::PathBuf> {
     Some(state.join("sable-next/sentry-consent"))
 }
 
-#[cfg(any(target_os = "macos", target_os = "ios"))]
+#[cfg(not(target_os = "android"))]
 fn consent_path() -> Option<std::path::PathBuf> {
     let home = std::env::var_os("HOME")?;
     Some(
@@ -52,9 +29,6 @@ fn consent() -> bool {
 fn persist_consent(enabled: bool) {
     let Some(path) = consent_path() else { return };
     if let Some(parent) = path.parent() {
-        #[cfg(target_os = "linux")]
-        let _ = crate::app_dirs::create_private_dir(parent);
-        #[cfg(not(target_os = "linux"))]
         let _ = std::fs::create_dir_all(parent);
     }
     let _ = std::fs::write(path, if enabled { b"1" } else { b"0" });
@@ -230,19 +204,11 @@ pub fn init() -> Option<sentry::ClientInitGuard> {
     options.release = option_env!("SENTRY_APP_VERSION").map(Into::into);
     options.send_default_pii = false;
     options.before_send = Some(Arc::new(|event: Event<'static>| {
-        let enabled = if cfg!(desktop) && event.level == sentry::Level::Fatal {
-            consent()
-        } else {
-            CONSENT.load(Ordering::Relaxed)
-        };
-        enabled.then(|| scrub_event(event))
+        CONSENT.load(Ordering::Relaxed).then(|| scrub_event(event))
     }));
     options.before_send_log = Some(Arc::new(|log| {
         CONSENT.load(Ordering::Relaxed).then(|| scrub_log(log))
     }));
-    #[cfg(desktop)]
-    let options =
-        options.add_integration(sentry::integrations::minidump::MinidumpIntegration::new());
 
     Some(sentry::init(options))
 }

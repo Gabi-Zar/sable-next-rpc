@@ -21,12 +21,6 @@ const screenAudio = vi.hoisted(() => ({
 }));
 vi.mock('#lib/platform/screen-audio.js', () => screenAudio);
 
-const hdr = vi.hoisted(() => ({
-  startHdrShare: vi.fn<(monitor: number, onEnded: () => void) => Promise<MediaStreamTrack>>(),
-  stopHdrShare: vi.fn(() => Promise.resolve()),
-}));
-vi.mock('#lib/platform/hdr-share.js', () => hdr);
-
 function roomFixture() {
   const listeners = new Map<string, Set<(...args: unknown[]) => void>>();
   let state = ConnectionState.Disconnected;
@@ -330,34 +324,6 @@ test('screen frame rate caps capture and encoding', async () => {
     preferences.callScreenFramerate = 'auto';
     await transport.disconnect();
   }
-});
-
-test('HDR sharing uses the screen resolution and publish quality', async () => {
-  preferences.callScreenResolution = '480';
-  preferences.callScreenBitrate = '500';
-  preferences.callScreenCodec = 'av1';
-  const fixture = roomFixture();
-  const publisher = withPublishing(fixture);
-  hdr.startHdrShare.mockResolvedValue(Object.assign(audioTrackStub(), { kind: 'video' }));
-  const transport = createLivekitTransport({ encryptMedia: false, createRoom: () => fixture.room });
-  await transport.connect(connectOptions);
-  await transport.capabilities.screenShare?.setEnabled(true, undefined, {
-    kind: 'hdr',
-    monitor: 2,
-  });
-  expect(hdr.startHdrShare).toHaveBeenLastCalledWith(2, expect.any(Function), {
-    width: 853,
-    height: 480,
-  });
-  expect(publisher.publishTrack).toHaveBeenCalledWith(
-    expect.anything(),
-    expect.objectContaining({
-      source: 'screen_share',
-      screenShareEncoding: { maxBitrate: 500_000 },
-      videoCodec: 'av1',
-    })
-  );
-  await transport.disconnect();
 });
 
 test('imports the publisher key before connecting or capturing audio', async () => {
@@ -703,65 +669,6 @@ test('accepts live macOS display audio', async () => {
   await transport.connect(connectOptions);
   await expect(transport.capabilities.screenShare?.setEnabled(true)).resolves.toBeUndefined();
   await transport.disconnect();
-});
-
-test('an HDR monitor is published as the screen share and stopped with it', async () => {
-  const fixture = roomFixture();
-  const participant = withPublishing(fixture);
-  const screen = Object.assign(audioTrackStub(), {
-    kind: 'video',
-    id: 'hdr-screen',
-    getSettings: () => ({ width: 1920, height: 1080 }),
-  });
-  hdr.startHdrShare.mockResolvedValue(screen);
-  const transport = createLivekitTransport({ encryptMedia: false, createRoom: () => fixture.room });
-
-  await transport.connect(connectOptions);
-  await transport.capabilities.screenShare?.setEnabled(true, undefined, {
-    kind: 'hdr',
-    monitor: 1,
-  });
-
-  expect(hdr.startHdrShare).toHaveBeenCalledWith(1, expect.any(Function), undefined);
-  expect(participant.publishTrack).toHaveBeenCalledWith(
-    expect.anything(),
-    expect.objectContaining({ source: 'screen_share' })
-  );
-  expect(fixture.localParticipant.setScreenShareEnabled).not.toHaveBeenCalled();
-
-  await transport.capabilities.screenShare?.setEnabled(false);
-
-  expect(participant.unpublishTrack).toHaveBeenCalledOnce();
-  expect(hdr.stopHdrShare).toHaveBeenCalledOnce();
-  expect(fixture.localParticipant.setScreenShareEnabled).not.toHaveBeenCalled();
-});
-
-test('an HDR share the desktop ends is unpublished', async () => {
-  const fixture = roomFixture();
-  const participant = withPublishing(fixture);
-  const screen = Object.assign(audioTrackStub(), {
-    kind: 'video',
-    id: 'hdr-screen',
-    getSettings: () => ({ width: 1920, height: 1080 }),
-  });
-  let ended = (): void => undefined;
-  hdr.startHdrShare.mockImplementationOnce((_, onEnded) => {
-    ended = onEnded;
-    return Promise.resolve(screen);
-  });
-  const transport = createLivekitTransport({ encryptMedia: false, createRoom: () => fixture.room });
-
-  await transport.connect(connectOptions);
-  await transport.capabilities.screenShare?.setEnabled(true, undefined, {
-    kind: 'hdr',
-    monitor: 0,
-  });
-  ended();
-
-  await vi.waitFor(() => {
-    expect(hdr.stopHdrShare).toHaveBeenCalled();
-  });
-  expect(participant.unpublishTrack).toHaveBeenCalledOnce();
 });
 
 test('publishes the screen audio beside the share, and tears it down with it', async () => {

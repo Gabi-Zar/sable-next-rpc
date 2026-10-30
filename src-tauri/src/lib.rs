@@ -2,55 +2,22 @@
 
 //! The native carrier. A feature adds an RPC handler in `sable_core::api`, except to move bytes or reach something only this process has.
 
-#[cfg(target_os = "linux")]
-mod app_dirs;
-#[cfg(desktop)]
-mod auth_window;
-#[cfg(any(all(feature = "cef", target_os = "linux"), test))]
-mod deep_link_delivery;
-#[cfg(any(all(feature = "cef", target_os = "linux"), all(test, unix)))]
-pub mod deep_link_ipc;
+#[cfg(target_os = "android")]
+mod cold_push;
 #[cfg(target_os = "ios")]
 // Objective-C bindings expose PhotoKit calls as unsafe; keep that exception out
 // of the Rust-only application code.
 #[expect(unsafe_code, reason = "FFI call")]
 mod ios;
 mod map_tiles;
-#[cfg(all(feature = "cef", target_os = "linux"))]
-pub use map_tiles::TILE_URI_SCHEME;
-#[cfg(target_os = "android")]
-mod cold_push;
-#[cfg(target_os = "linux")]
-mod hdr_share;
 #[cfg(target_os = "android")]
 mod mobile;
 #[cfg(mobile)]
 mod network;
 mod notifications;
-#[cfg(target_os = "linux")]
-pub mod permission_grants;
-#[cfg(all(feature = "cef", target_os = "linux"))]
-mod portal_theme;
-#[cfg(desktop)]
-pub mod proxy;
-#[cfg(target_os = "linux")]
-pub mod screen_audio;
 mod sentry;
 mod share_inbox;
-#[cfg(target_os = "linux")]
-pub mod smooth_scrolling;
-#[cfg(target_os = "windows")]
-mod snap_layouts;
-#[cfg(desktop)]
-mod tray;
 mod v1_migration;
-#[cfg(desktop)]
-pub mod verbose;
-mod web_resources;
-#[cfg(all(not(feature = "cef"), target_os = "linux"))]
-mod webkit;
-#[cfg(desktop)]
-mod window_geometry;
 
 use std::{
     collections::HashMap,
@@ -67,12 +34,6 @@ use tauri::{
     ipc::{Channel, InvokeBody, Request, Response},
 };
 use tauri_plugin_opener::OpenerExt;
-
-/// CEF (Chromium) on Linux, wry everywhere else.
-#[cfg(all(feature = "cef", target_os = "linux"))]
-type BrowserEngine = tauri_runtime_cef::CefRuntime<tauri::EventLoopMessage>;
-#[cfg(not(all(feature = "cef", target_os = "linux")))]
-use tauri::Wry as BrowserEngine;
 
 struct AppState {
     core: Arc<Core>,
@@ -299,7 +260,7 @@ fn subscribe_events(state: State<'_, AppState>, channel: Channel<Vec<CoreEvent>>
 
 #[tauri::command]
 async fn register_push(
-    app: AppHandle<BrowserEngine>,
+    app: AppHandle<tauri::Wry>,
     state: State<'_, AppState>,
     config: notifications::PushConfig,
 ) -> Result<(), notifications::PushRegistrationError> {
@@ -313,7 +274,7 @@ async fn register_push(
     reason = "tauri extracts command state by value"
 )]
 fn device_pusher(
-    app: AppHandle<BrowserEngine>,
+    app: AppHandle<tauri::Wry>,
     user_id: String,
     device_id: String,
 ) -> Result<Option<notifications::DevicePusher>, RpcError> {
@@ -321,13 +282,13 @@ fn device_pusher(
 }
 
 #[tauri::command]
-async fn unregister_push(app: AppHandle<BrowserEngine>) -> Result<(), RpcError> {
+async fn unregister_push(app: AppHandle<tauri::Wry>) -> Result<(), RpcError> {
     Box::pin(notifications::unregister_push(&app)).await
 }
 
 #[tauri::command]
 async fn test_notification(
-    app: AppHandle<BrowserEngine>,
+    app: AppHandle<tauri::Wry>,
     state: State<'_, AppState>,
     sequence: u32,
 ) -> Result<(), RpcError> {
@@ -343,7 +304,7 @@ async fn test_notification(
     reason = "notification preference command arguments"
 )]
 async fn set_notification_encrypted_content(
-    app: AppHandle<BrowserEngine>,
+    app: AppHandle<tauri::Wry>,
     allowed: bool,
     content: bool,
     enabled: bool,
@@ -396,60 +357,13 @@ async fn set_notification_encrypted_content(
     Ok(())
 }
 
-fn setup(app: &mut tauri::App<BrowserEngine>) -> Result<(), Box<dyn std::error::Error>> {
-    #[cfg(desktop)]
-    proxy::apply_to_core();
-    #[cfg(desktop)]
-    if let Some(error) = proxy::launch_error() {
-        use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
-        app.dialog()
-            .message(error)
-            .title("Sable")
-            .kind(MessageDialogKind::Error)
-            .show(|_| std::process::exit(2));
-        return Ok(());
-    }
-
+fn setup(app: &mut tauri::App<tauri::Wry>) -> Result<(), Box<dyn std::error::Error>> {
     for config in &app.config().app.windows {
-        let builder = tauri::WebviewWindowBuilder::from_config(app.handle(), config)?
-            .on_web_resource_request(|request, response| {
-                web_resources::fix_content_type(&request, response);
-            });
-        #[cfg(desktop)]
-        let builder = window_geometry::restore(app.handle(), builder, &config.label);
-        #[cfg(desktop)]
-        let builder = window_geometry::restore_title_bar(app.handle(), builder);
-        #[cfg(all(desktop, not(all(feature = "cef", target_os = "linux"))))]
-        let builder = match proxy::launch_proxy() {
-            Ok(Some(url)) => builder.proxy_url(tauri::Url::parse(url)?),
-            _ => builder,
-        };
+        let builder = tauri::WebviewWindowBuilder::from_config(app.handle(), config)?;
         #[cfg(target_os = "android")]
         let builder = builder.on_navigation(|url| url.as_str().parse::<tauri::http::Uri>().is_ok());
         builder.build()?;
     }
-
-    // GTK's X11 backend swaps out the X error handlers on the way in,
-    // so the runtime's have to go back on after it.
-    #[cfg(all(feature = "cef", target_os = "linux"))]
-    {
-        gtk::init()?;
-        tauri_runtime_cef::install_x_error_handlers();
-    }
-
-    // Linux never registers schemes at install time, and a Windows dev
-    // build skips the installer, so claim it at runtime.
-    #[cfg(any(target_os = "linux", all(debug_assertions, windows)))]
-    {
-        use tauri_plugin_deep_link::DeepLinkExt;
-        app.deep_link().register_all()?;
-    }
-
-    #[cfg(all(feature = "cef", target_os = "linux"))]
-    deep_link_ipc::install_handler(app.handle());
-
-    #[cfg(all(feature = "cef", target_os = "linux"))]
-    portal_theme::follow(app.handle().clone());
 
     let data_dir = app.path().app_data_dir()?;
     // Android resolves that to the app data root, which the app
@@ -492,67 +406,15 @@ fn setup(app: &mut tauri::App<BrowserEngine>) -> Result<(), Box<dyn std::error::
         event_sink: event_sink.clone(),
     });
     spawn_event_pump(app.handle().clone(), pushing, events, event_sink);
-    #[cfg(desktop)]
-    notifications::register_actions(app.handle());
-    #[cfg(desktop)]
-    app.manage(tray::DesktopWindowStore::default());
 
     #[cfg(target_os = "ios")]
     if let Some(window) = app.get_webview_window("main") {
         ios::hide_form_accessory_bar(&window);
     }
 
-    #[cfg(all(not(feature = "cef"), target_os = "linux"))]
-    webkit::configure(app.handle());
-
     map_tiles::cleanup_cache(app.handle());
 
     Ok(())
-}
-
-#[cfg(desktop)]
-#[tauri::command]
-#[expect(
-    clippy::needless_pass_by_value,
-    reason = "the framework passes this argument by value"
-)]
-fn apply_desktop_window_settings(
-    app: AppHandle<BrowserEngine>,
-    settings: tray::DesktopWindowSettings,
-) -> Result<tray::DesktopWindowState, String> {
-    tray::apply(&app, settings).map_err(|error| error.to_string())
-}
-
-#[cfg(desktop)]
-#[tauri::command]
-#[expect(
-    clippy::needless_pass_by_value,
-    reason = "the framework passes this argument by value"
-)]
-fn set_tray_unread(app: AppHandle<BrowserEngine>, unread: bool) -> Result<(), String> {
-    tray::set_unread_dot(&app, unread).map_err(|error| error.to_string())
-}
-
-#[cfg(desktop)]
-fn hide_to_tray_on_close(window: &tauri::Window<BrowserEngine>, event: &tauri::WindowEvent) {
-    if window.label() != "main" {
-        return;
-    }
-    match event {
-        tauri::WindowEvent::CloseRequested { api, .. } => {
-            if tray::hides_to_tray(window.app_handle()) {
-                api.prevent_close();
-                tray::hide_to_tray(window);
-            }
-        }
-        tauri::WindowEvent::Resized(_)
-            if tray::minimizes_to_tray(window.app_handle())
-                && window.is_minimized().unwrap_or(false) =>
-        {
-            tray::hide_to_tray(window);
-        }
-        _ => {}
-    }
 }
 
 #[cfg(mobile)]
@@ -589,14 +451,8 @@ fn follow_ios_lifecycle(core: &Arc<Core>) {
 
 /// A mobile OS never runs two copies of the app, and iOS kills a suspended app that
 /// still holds a file lock in the shared App Group container.
-#[cfg(mobile)]
 fn session_store(data_dir: &std::path::Path) -> Box<dyn sable_core::store::SessionStore> {
     Box::new(sable_core::store::FileSessionStore::new(data_dir))
-}
-
-#[cfg(not(mobile))]
-fn session_store(data_dir: &std::path::Path) -> Box<dyn sable_core::store::SessionStore> {
-    Box::new(sable_core::store::ExclusiveFileSessionStore::new(data_dir))
 }
 
 #[cfg(mobile)]
@@ -625,18 +481,18 @@ fn set_mobile_activity(core: Arc<Core>, active: bool) {
 }
 
 #[tauri::command]
-async fn notification_permission(app: AppHandle<BrowserEngine>) -> &'static str {
+async fn notification_permission(app: AppHandle<tauri::Wry>) -> &'static str {
     notifications::permission(&app).await
 }
 
 #[tauri::command]
-async fn request_notification_permission(app: AppHandle<BrowserEngine>) -> &'static str {
+async fn request_notification_permission(app: AppHandle<tauri::Wry>) -> &'static str {
     notifications::request_permission(&app).await
 }
 
 #[tauri::command]
 async fn dismiss_room_notifications(
-    app: AppHandle<BrowserEngine>,
+    app: AppHandle<tauri::Wry>,
     user_id: String,
     room_ids: Vec<String>,
 ) {
@@ -645,7 +501,7 @@ async fn dismiss_room_notifications(
 
 #[tauri::command]
 async fn set_open_conversation(
-    app: AppHandle<BrowserEngine>,
+    app: AppHandle<tauri::Wry>,
     user_id: Option<String>,
     room_id: Option<String>,
 ) {
@@ -656,7 +512,7 @@ async fn set_open_conversation(
 }
 
 #[tauri::command]
-async fn forget_left_conversations(app: AppHandle<BrowserEngine>) {
+async fn forget_left_conversations(app: AppHandle<tauri::Wry>) {
     #[cfg(target_os = "android")]
     {
         let core = app.state::<AppState>().core.clone();
@@ -668,174 +524,19 @@ async fn forget_left_conversations(app: AppHandle<BrowserEngine>) {
 
 #[tauri::command]
 async fn dismiss_read_room_notifications(
-    app: AppHandle<BrowserEngine>,
+    app: AppHandle<tauri::Wry>,
     user_id: String,
     room_ids: Vec<String>,
 ) {
     notifications::dismiss_read(&app, &user_id, &room_ids).await;
 }
 
-#[cfg(all(feature = "cef", target_os = "linux"))]
-#[tauri::command]
-fn pending_deep_links() -> Vec<String> {
-    deep_link_ipc::take_pending_urls()
-}
-
-#[cfg(all(feature = "cef", target_os = "linux"))]
-#[tauri::command]
-fn system_color_scheme() -> Option<&'static str> {
-    portal_theme::current_scheme()
-}
-
-#[cfg(desktop)]
 #[tauri::command]
 #[expect(
     clippy::needless_pass_by_value,
     reason = "tauri extracts command inputs by value"
 )]
-fn toggle_devtools(window: tauri::WebviewWindow<BrowserEngine>) {
-    if window.is_devtools_open() {
-        window.close_devtools();
-    } else {
-        window.open_devtools();
-    }
-}
-
-#[cfg(target_os = "windows")]
-#[tauri::command]
-async fn hdr_monitors() -> Vec<sable_hdr::share::HdrMonitor> {
-    tauri::async_runtime::spawn_blocking(sable_hdr::share::list)
-        .await
-        .unwrap_or_default()
-}
-
-#[cfg(target_os = "windows")]
-#[tauri::command]
-async fn start_hdr_share(app: AppHandle<BrowserEngine>, index: usize) -> Result<(), String> {
-    tauri::async_runtime::spawn_blocking(move || sable_hdr::share::start(app, index))
-        .await
-        .map_err(|error| error.to_string())?
-}
-
-#[cfg(target_os = "windows")]
-#[tauri::command]
-fn hdr_frame_done(slot: usize) {
-    sable_hdr::share::release(slot);
-}
-
-#[cfg(target_os = "windows")]
-#[tauri::command]
-async fn stop_hdr_share() {
-    let _ = tauri::async_runtime::spawn_blocking(sable_hdr::share::stop).await;
-}
-
-#[cfg(target_os = "linux")]
-#[tauri::command]
-async fn hdr_monitors() -> Vec<hdr_share::HdrMonitor> {
-    tauri::async_runtime::spawn_blocking(hdr_share::monitors)
-        .await
-        .unwrap_or_default()
-}
-
-#[cfg(target_os = "linux")]
-#[tauri::command]
-async fn start_hdr_share(frames: tauri::ipc::Channel<tauri::ipc::Response>) -> Result<(), String> {
-    let _ = tauri::async_runtime::spawn_blocking(hdr_share::stop).await;
-    hdr_share::start(frames).await
-}
-
-#[cfg(target_os = "linux")]
-#[tauri::command]
-fn hdr_frame_done() {
-    hdr_share::release();
-}
-
-#[cfg(target_os = "linux")]
-#[tauri::command]
-async fn stop_hdr_share() {
-    let _ = tauri::async_runtime::spawn_blocking(hdr_share::stop).await;
-}
-
-#[cfg(target_os = "linux")]
-#[tauri::command]
-async fn start_screen_audio(selection: screen_audio::Selection) -> Result<String, String> {
-    tauri::async_runtime::spawn_blocking(move || screen_audio::start(selection))
-        .await
-        .map_err(|error| error.to_string())?
-}
-
-#[cfg(target_os = "linux")]
-#[tauri::command]
-async fn screen_audio_apps() -> Result<Vec<String>, String> {
-    tauri::async_runtime::spawn_blocking(screen_audio::list_apps)
-        .await
-        .map_err(|error| error.to_string())?
-}
-
-#[cfg(target_os = "linux")]
-#[tauri::command]
-async fn stop_screen_audio() {
-    let _ = tauri::async_runtime::spawn_blocking(screen_audio::stop).await;
-}
-
-/// `WebView2` parents its browser process to Explorer when we run elevated, so
-/// it is not always in our process tree.
-#[cfg(target_os = "windows")]
-async fn webview_process(webview: &tauri::Webview<BrowserEngine>) -> Result<u32, String> {
-    let (sender, receiver) = tokio::sync::oneshot::channel();
-    webview
-        .with_webview(move |platform| {
-            let mut pid = 0;
-            // SAFETY: `pid` outlives the call, which only writes through it.
-            #[expect(unsafe_code, reason = "FFI call")]
-            let outcome = unsafe {
-                platform
-                    .controller()
-                    .CoreWebView2()
-                    .and_then(|core| core.BrowserProcessId(&raw mut pid))
-            };
-            let _ = sender.send(outcome.map(|()| pid).map_err(|error| error.to_string()));
-        })
-        .map_err(|error| error.to_string())?;
-    receiver.await.map_err(|error| error.to_string())?
-}
-
-#[cfg(target_os = "windows")]
-#[tauri::command]
-async fn start_screen_audio_stream(
-    webview: tauri::Webview<BrowserEngine>,
-    selection: sable_loopback::capture::Selection,
-    frames: tauri::ipc::Channel<tauri::ipc::Response>,
-) -> Result<(), String> {
-    let browser = webview_process(&webview).await?;
-    tauri::async_runtime::spawn_blocking(move || {
-        sable_loopback::share::start(&selection, browser, frames)
-    })
-    .await
-    .map_err(|error| error.to_string())?
-}
-
-#[cfg(target_os = "windows")]
-#[tauri::command]
-async fn screen_audio_apps(webview: tauri::Webview<BrowserEngine>) -> Result<Vec<String>, String> {
-    let browser = webview_process(&webview).await?;
-    tauri::async_runtime::spawn_blocking(move || sable_loopback::share::list_apps(browser))
-        .await
-        .map_err(|error| error.to_string())?
-}
-
-#[cfg(target_os = "windows")]
-#[tauri::command]
-async fn stop_screen_audio() {
-    let _ = tauri::async_runtime::spawn_blocking(sable_loopback::share::stop).await;
-}
-
-#[tauri::command]
-#[expect(
-    clippy::needless_pass_by_value,
-    reason = "tauri extracts command inputs by value"
-)]
-fn open_external_url(app: AppHandle<BrowserEngine>, url: String) -> Result<(), RpcError> {
+fn open_external_url(app: AppHandle<tauri::Wry>, url: String) -> Result<(), RpcError> {
     let parsed = tauri::Url::parse(&url).map_err(|_| RpcError::Denied)?;
     if !matches!(parsed.scheme(), "http" | "https" | "mailto" | "tel") {
         return Err(RpcError::Denied);
@@ -864,15 +565,6 @@ fn spawn_event_pump<R: tauri::Runtime>(
     tauri::async_runtime::spawn(async move {
         let mut batch = Vec::new();
         while events.recv_many(&mut batch, EVENT_BATCH_LIMIT).await > 0 {
-            #[cfg(desktop)]
-            for event in &batch {
-                if matches!(
-                    event,
-                    CoreEvent::IncomingCall { .. } | CoreEvent::IncomingCallEnded { .. }
-                ) {
-                    notifications::handle_call(&notifier, &pushing, event).await;
-                }
-            }
             let showing: Vec<_> = batch
                 .iter()
                 .filter_map(|event| match event {
@@ -896,26 +588,6 @@ fn spawn_event_pump<R: tauri::Runtime>(
     });
 }
 
-#[cfg(desktop)]
-fn auto_update_supported() -> bool {
-    !cfg!(target_os = "linux") || std::env::var_os("APPIMAGE").is_some()
-}
-
-#[cfg(desktop)]
-fn with_updates(builder: tauri::Builder<BrowserEngine>) -> tauri::Builder<BrowserEngine> {
-    builder
-        .plugin(tauri_plugin_updater::Builder::new().build())
-        .plugin(tauri_plugin_process::init())
-        .plugin(
-            tauri::plugin::Builder::<BrowserEngine, ()>::new("sable-updates")
-                .js_init_script(format!(
-                    "window.__SABLE_AUTO_UPDATE__ = {};",
-                    auto_update_supported()
-                ))
-                .build(),
-        )
-}
-
 /// Silences two SDK sites that log once per room per sync response.
 fn install_logging() {
     use tracing_subscriber::prelude::*;
@@ -936,9 +608,8 @@ fn install_logging() {
     }
 }
 
-#[cfg(not(target_os = "linux"))]
-fn with_platform_plugins(builder: tauri::Builder<BrowserEngine>) -> tauri::Builder<BrowserEngine> {
-    #[cfg(any(target_os = "android", target_os = "ios"))]
+#[cfg(mobile)]
+fn with_platform_plugins(builder: tauri::Builder<tauri::Wry>) -> tauri::Builder<tauri::Wry> {
     let builder = builder
         .plugin(tauri_plugin_app_icon::init())
         .plugin(tauri_plugin_edge_to_edge::init())
@@ -950,15 +621,9 @@ fn with_platform_plugins(builder: tauri::Builder<BrowserEngine>) -> tauri::Build
     #[cfg(target_os = "android")]
     let builder = builder.plugin(tauri_plugin_sable_push::init());
 
-    #[cfg(all(any(target_os = "android", target_os = "ios"), feature = "geolocation"))]
+    #[cfg(feature = "geolocation")]
     let builder = builder.plugin(tauri_plugin_geolocation::init());
 
-    #[cfg(any(
-        target_os = "android",
-        target_os = "ios",
-        target_os = "macos",
-        target_os = "windows"
-    ))]
     let builder = builder.plugin(tauri_plugin_sharekit::init());
 
     #[cfg(target_os = "android")]
@@ -977,8 +642,8 @@ pub fn run() {
     let sentry_guard = sentry::init();
     install_logging();
 
-    let builder = tauri::Builder::<BrowserEngine>::new();
-    #[cfg(any(target_os = "macos", target_os = "ios"))]
+    let builder = tauri::Builder::<tauri::Wry>::new();
+    #[cfg(target_os = "ios")]
     let builder = builder.on_web_content_process_terminate(|webview| {
         tracing::error!("webview content process terminated");
         // WebKit leaves the page blank until reloaded.
@@ -992,31 +657,7 @@ pub fn run() {
         builder
     };
 
-    // Before every other plugin, as its docs require: it has to win the race
-    // with a second process carrying the OIDC redirect.
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
-    let builder = builder.plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
-        if let Some(window) = app.get_webview_window("main") {
-            let _ = window.set_focus();
-        }
-    }));
-
-    #[cfg(desktop)]
-    let builder = if verbose::enabled() {
-        builder.plugin(verbose::plugin())
-    } else {
-        builder
-    };
-
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
-    let builder = builder
-        .plugin(window_geometry::plugin())
-        .on_window_event(hide_to_tray_on_close);
-
-    #[cfg(not(any(target_os = "android", target_os = "ios")))]
-    let builder = with_updates(builder);
-
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(mobile)]
     let builder = with_platform_plugins(builder);
 
     let app = match builder
@@ -1051,34 +692,6 @@ pub fn run() {
             upload_media,
             upload_media_base64,
             open_external_url,
-            #[cfg(desktop)]
-            auth_window::open_auth_window,
-            #[cfg(desktop)]
-            auth_window::close_auth_window,
-            #[cfg(target_os = "linux")]
-            start_screen_audio,
-            #[cfg(target_os = "windows")]
-            start_screen_audio_stream,
-            #[cfg(any(target_os = "windows", target_os = "linux"))]
-            stop_screen_audio,
-            #[cfg(any(target_os = "windows", target_os = "linux"))]
-            screen_audio_apps,
-            #[cfg(any(target_os = "windows", target_os = "linux"))]
-            hdr_monitors,
-            #[cfg(any(target_os = "windows", target_os = "linux"))]
-            start_hdr_share,
-            #[cfg(any(target_os = "windows", target_os = "linux"))]
-            hdr_frame_done,
-            #[cfg(any(target_os = "windows", target_os = "linux"))]
-            stop_hdr_share,
-            #[cfg(desktop)]
-            toggle_devtools,
-            #[cfg(desktop)]
-            verbose::log_console,
-            #[cfg(all(feature = "cef", target_os = "linux"))]
-            pending_deep_links,
-            #[cfg(all(feature = "cef", target_os = "linux"))]
-            system_color_scheme,
             register_push,
             unregister_push,
             device_pusher,
@@ -1090,16 +703,6 @@ pub fn run() {
             request_notification_permission,
             test_notification,
             set_notification_encrypted_content,
-            #[cfg(desktop)]
-            apply_desktop_window_settings,
-            #[cfg(desktop)]
-            set_tray_unread,
-            #[cfg(target_os = "windows")]
-            snap_layouts::show_snap_layouts,
-            #[cfg(target_os = "windows")]
-            snap_layouts::release_snap_layouts,
-            #[cfg(target_os = "windows")]
-            snap_layouts::dismiss_snap_layouts,
             share_inbox::share_inbox_drain,
             share_inbox::share_inbox_read,
             share_inbox::share_inbox_clear,
@@ -1150,7 +753,7 @@ pub fn run() {
 const EXIT_HANGUP_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(3);
 
 /// Quitting mid-call would otherwise leave our membership in the room.
-fn hang_up_before_exit(app: &AppHandle<BrowserEngine>) {
+fn hang_up_before_exit(app: &AppHandle<tauri::Wry>) {
     let Some(state) = app.try_state::<AppState>() else {
         return;
     };

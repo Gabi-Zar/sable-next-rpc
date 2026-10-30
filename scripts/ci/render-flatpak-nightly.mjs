@@ -1,15 +1,15 @@
-// Usage: render-flatpak-nightly.mjs [--electron] <version> <tag> <x86_64-sha256:size> <aarch64-sha256:size> [date]
+// Usage: render-flatpak-nightly.mjs <version> <tag> <x86_64-sha256:size> <aarch64-sha256:size> [date]
 // Pass "-" for an architecture that is not being published.
 
 import { readFileSync, writeFileSync } from 'node:fs';
-import { flatpakFlavor, parseArches, renderSources } from '../lib/flatpak.mjs';
+import { flatpakTarget, parseArches, renderSources } from '../lib/flatpak.mjs';
 
-const { args, dir, id } = flatpakFlavor(process.argv.slice(2), 'nightly');
-const [version, tag, x86, arm, dateArg] = args;
+const { dir, id } = flatpakTarget('nightly');
+const [version, tag, x86, arm, dateArg] = process.argv.slice(2);
 
 if (!version || !tag || !x86 || !arm) {
   console.error(
-    'Usage: render-flatpak-nightly.mjs [--electron] <version> <tag> <x86_64-sha256:size> <aarch64-sha256:size> [date]'
+    'Usage: render-flatpak-nightly.mjs <version> <tag> <x86_64-sha256:size> <aarch64-sha256:size> [date]'
   );
   process.exit(1);
 }

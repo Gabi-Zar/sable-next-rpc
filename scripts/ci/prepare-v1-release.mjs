@@ -14,11 +14,7 @@ export function prepareV1Release(root) {
   const rewrite = (path, transform) => {
     if (existsSync(path)) writeFileSync(path, transform(readFileSync(path, 'utf8')));
   };
-  rewrite(join(root, 'src-tauri/src/main.rs'), (text) =>
-    text.replaceAll(`identifier: "${previous}"`, `identifier: "${v1Identifier}"`)
-  );
   const schemes = ['moe.sable.app', 'sable'];
-  config.plugins['deep-link'].desktop.schemes = [...schemes, 'matrix'];
   config.plugins['deep-link'].mobile[0].scheme = [...schemes, 'matrix'];
   rewrite(join(root, 'src-tauri/ios-project.yml'), (text) =>
     text.replace(/( *)- moe\.sable\.next\n/, (_, indent) =>

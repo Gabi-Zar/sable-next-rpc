@@ -65,17 +65,11 @@ export function renderSources(template, arches, sourceType) {
 }
 
 const flavors = {
-  tauri: {
-    stable: ['packaging/flatpak', 'moe.sable.client'],
-  },
-  electron: {
-    stable: ['packaging/flatpak/electron', 'moe.sable.next.electron'],
-    nightly: ['packaging/flatpak/electron/nightly', 'moe.sable.next.electron.Nightly'],
-  },
+  stable: ['packaging/flatpak', 'moe.sable.client'],
+  nightly: ['packaging/flatpak/electron/nightly', 'moe.sable.next.electron.Nightly'],
 };
 
-export function flatpakFlavor(argv, channel) {
-  const electron = argv.includes('--electron');
-  const [dir, id] = flavors[electron ? 'electron' : 'tauri'][channel];
-  return { args: argv.filter((arg) => arg !== '--electron'), dir, id };
+export function flatpakTarget(channel) {
+  const [dir, id] = flavors[channel];
+  return { dir, id };
 }

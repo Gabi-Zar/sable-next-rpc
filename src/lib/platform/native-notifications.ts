@@ -67,7 +67,7 @@ export async function dismissNativeReadRoomNotifications(
   userId: string,
   roomIds: readonly string[]
 ): Promise<void> {
-  if (!(await deliversNativePush())) return;
+  if (!deliversNativePush()) return;
   await invoke('dismiss_read_room_notifications', { userId, roomIds });
 }
 

@@ -35,14 +35,6 @@ describe('authentication browsers', () => {
     expect(native.invoke).not.toHaveBeenCalled();
   });
 
-  test.each(['linux', 'windows', 'macos'])('opens the system browser on %s', async (platform) => {
-    native.platform.mockReturnValue(platform);
-    await openSystemAuthUrl('https://auth.example.org/authorize');
-    expect(native.invoke).toHaveBeenCalledExactlyOnceWith('open_external_url', {
-      url: 'https://auth.example.org/authorize',
-    });
-  });
-
   test('opens the Electron system browser through its bridge', async () => {
     native.isTauri.mockReturnValue(false);
     const openAuthInSystemBrowser = vi.fn().mockResolvedValue(undefined);
@@ -57,9 +49,11 @@ describe('authentication browsers', () => {
   test.each(['file:///etc/passwd', 'javascript:alert(1)'])(
     'rejects system auth URL %s',
     async (url) => {
-      native.platform.mockReturnValue('macos');
+      native.isTauri.mockReturnValue(false);
+      const openAuthInSystemBrowser = vi.fn();
+      native.electronBridge.mockReturnValue({ openAuthInSystemBrowser });
       await expect(openSystemAuthUrl(url)).rejects.toThrow('HTTP');
-      expect(native.invoke).not.toHaveBeenCalled();
+      expect(openAuthInSystemBrowser).not.toHaveBeenCalled();
     }
   );
 
@@ -70,16 +64,6 @@ describe('authentication browsers', () => {
       id: expect.stringMatching(/^sable-auth-/) as unknown,
       url: 'https://matrix.example.org/register',
       callbackUri: undefined,
-    });
-  });
-
-  test.each(['linux', 'windows', 'macos'])('opens an auth popup on %s', async (platform) => {
-    native.platform.mockReturnValue(platform);
-    await openExternalAuthUrl('https://matrix.example.org/register');
-    expect(native.invoke).toHaveBeenCalledExactlyOnceWith('open_auth_window', {
-      id: expect.stringMatching(/^sable-auth-/) as unknown,
-      callbackUri: undefined,
-      url: 'https://matrix.example.org/register',
     });
   });
 
@@ -117,7 +101,7 @@ describe('authentication browsers', () => {
     }
   });
 
-  test.each(['ios', 'android', 'macos', 'windows', 'linux'])(
+  test.each(['ios', 'android'])(
     'closes the matching %s browser once, even when completion arrives during opening',
     async (platform) => {
       native.platform.mockReturnValue(platform);
@@ -140,10 +124,9 @@ describe('authentication browsers', () => {
       await navigating;
       await closing;
       expect(native.invoke).toHaveBeenCalledTimes(2);
-      expect(native.invoke).toHaveBeenLastCalledWith(
-        ['ios', 'android'].includes(platform) ? 'close_in_app_auth_window' : 'close_auth_window',
-        { id: 'approval' }
-      );
+      expect(native.invoke).toHaveBeenLastCalledWith('close_in_app_auth_window', {
+        id: 'approval',
+      });
     }
   );
 

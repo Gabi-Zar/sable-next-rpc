@@ -1,6 +1,6 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, expect, it, vi } from 'vitest';
 
-import { pickBadgeStrategy, setUnreadBadge } from './badge.js';
+import { setUnreadBadge } from './badge.js';
 import type { ElectronBridge } from './electron';
 
 afterEach(() => {
@@ -29,25 +29,4 @@ it('sets and clears the browser badge', async () => {
   await setUnreadBadge(0);
   expect(setAppBadge).toHaveBeenCalledWith(3);
   expect(clearAppBadge).toHaveBeenCalledOnce();
-});
-
-describe('pickBadgeStrategy', () => {
-  it('uses the Tauri window API on Windows and macOS', () => {
-    expect(pickBadgeStrategy(true, 'windows', false)).toBe('tauri-window');
-    expect(pickBadgeStrategy(true, 'macos', false)).toBe('tauri-window');
-  });
-
-  it('marks the tray icon on Linux, which has no window badge', () => {
-    expect(pickBadgeStrategy(true, 'linux', false)).toBe('tauri-tray');
-  });
-
-  it('has no desktop badge concept on mobile Tauri builds', () => {
-    expect(pickBadgeStrategy(true, 'android', false)).toBe('none');
-    expect(pickBadgeStrategy(true, 'ios', false)).toBe('none');
-  });
-
-  it('falls back to the web Badging API outside Tauri when it exists', () => {
-    expect(pickBadgeStrategy(false, '', true)).toBe('web-app-badge');
-    expect(pickBadgeStrategy(false, '', false)).toBe('none');
-  });
 });

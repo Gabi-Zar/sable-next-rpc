@@ -1,5 +1,4 @@
 import { hasNativeCalls } from '#lib/platform/calls.js';
-import { usesPushGateway } from '#lib/platform/notifications.js';
 import { isAndroid, isNativeMobile } from '#lib/platform/os.js';
 import { preferences } from '../preferences.svelte';
 import type { SettingsTargetDefinition } from '../registry';
@@ -77,9 +76,7 @@ export const panelTargets: Record<string, PanelTarget[]> = {
       ],
       { terms: ['settings.notificationPush'] }
     ),
-    ...targets([['push-gateway', 'settings.pushGateway', 'settings.pushGatewayHint']], {
-      supported: usesPushGateway,
-    }),
+    ...targets([['push-gateway', 'settings.pushGateway', 'settings.pushGatewayHint']]),
     ...targets([['push-distributor', 'settings.pushTransport', 'settings.pushTransportHint']], {
       supported: isAndroid,
     }),

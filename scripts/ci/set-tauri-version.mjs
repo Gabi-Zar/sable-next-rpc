@@ -1,8 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
-import { parseArgs } from 'node:util';
 import { parse, valid } from 'semver';
 
-export function tauriVersionConfig(version, updaterEndpoint) {
+export function tauriVersionConfig(version) {
   const parsed = parse(version);
   if (!parsed) throw new Error(`Invalid semantic version: ${version}`);
   const nightlyVersion =
@@ -35,38 +34,22 @@ export function tauriVersionConfig(version, updaterEndpoint) {
 
   return {
     version,
-    ...(updaterEndpoint && { plugins: { updater: { endpoints: [updaterEndpoint] } } }),
     bundle: { android: { versionCode: androidVersionCode } },
   };
 }
 
 if (import.meta.main) {
-  const {
-    values: { 'updater-endpoint': updaterEndpoint },
-    positionals: [version],
-  } = parseArgs({
-    options: {
-      'updater-endpoint': { type: 'string' },
-    },
-    allowPositionals: true,
-  });
+  const version = process.argv[2];
 
   if (!version || !valid(version)) {
-    console.error(
-      `Usage: set-tauri-version.mjs <version> [--updater-endpoint=<url>]  (got: ${version ?? '<none>'})`
-    );
+    console.error(`Usage: set-tauri-version.mjs <version>  (got: ${version ?? '<none>'})`);
     process.exit(1);
   }
 
-  const patch = tauriVersionConfig(version, updaterEndpoint);
+  const patch = tauriVersionConfig(version);
   const file = 'src-tauri/tauri.conf.json';
   const config = JSON.parse(readFileSync(file, 'utf8'));
   config.version = patch.version;
-  if (patch.plugins) {
-    config.plugins ??= {};
-    config.plugins.updater ??= {};
-    config.plugins.updater.endpoints = patch.plugins.updater.endpoints;
-  }
   config.bundle ??= {};
   config.bundle.android ??= {};
   config.bundle.android.versionCode = patch.bundle.android.versionCode;

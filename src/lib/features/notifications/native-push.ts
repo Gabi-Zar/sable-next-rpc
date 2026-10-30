@@ -35,7 +35,7 @@ async function register(
   accounts: readonly SessionInfo[],
   provider: PushProvider = selectedPushProvider()
 ): Promise<void> {
-  if (!(await deliversNativePush())) return;
+  if (!deliversNativePush()) return;
 
   const { resolved, details } = await pushConfig(override);
   if (!resolved) throw new PushConfigMissing();

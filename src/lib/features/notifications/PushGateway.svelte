@@ -45,7 +45,7 @@
   const config = runtimeConfig();
   const core = useCoreClient();
   let android = $state(false);
-  let native = $state(false);
+  const native = deliversNativePush();
   let distributors = $state.raw<string[]>([]);
   let selected = $state('');
   let switching = $state(false);
@@ -54,10 +54,7 @@
   let serverPush = $state(false);
 
   async function refreshServerPush(): Promise<void> {
-    if (
-      !(deliversWebPush() || (await deliversNativePush())) ||
-      hasCompleteOverride(pushOverride())
-    ) {
+    if (!(deliversWebPush() || native) || hasCompleteOverride(pushOverride())) {
       serverPush = false;
       return;
     }
@@ -71,7 +68,6 @@
 
   async function refreshDistributors(): Promise<void> {
     try {
-      native = await deliversNativePush();
       android = await supportsPushDistributors();
       if (!android) return;
       distributors = await listPushDistributors();

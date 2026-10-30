@@ -1,16 +1,14 @@
-// Usage: render-flatpak-stable.mjs [--electron] <version> <x86_64-sha256> <aarch64-sha256>
+// Usage: render-flatpak-stable.mjs <version> <x86_64-sha256> <aarch64-sha256>
 // Pass "-" for an architecture that is not being published.
 
 import { readFileSync, writeFileSync } from 'node:fs';
-import { flatpakFlavor, parseArches, renderSources } from '../lib/flatpak.mjs';
+import { flatpakTarget, parseArches, renderSources } from '../lib/flatpak.mjs';
 
-const { args, dir, id } = flatpakFlavor(process.argv.slice(2), 'stable');
-const [version, x86, arm] = args;
+const { dir, id } = flatpakTarget('stable');
+const [version, x86, arm] = process.argv.slice(2);
 
 if (!version || !/^\d+\.\d+\.\d+$/.test(version) || !x86 || !arm) {
-  console.error(
-    'Usage: render-flatpak-stable.mjs [--electron] <version> <x86_64-sha256> <aarch64-sha256>'
-  );
+  console.error('Usage: render-flatpak-stable.mjs <version> <x86_64-sha256> <aarch64-sha256>');
   process.exit(1);
 }
 

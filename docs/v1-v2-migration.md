@@ -89,9 +89,6 @@ v1's callback schemes. Stable iOS bundles still run
 [prepare-v1-release.mjs](../scripts/ci/prepare-v1-release.mjs).
 Keep the original signing identity, a newer version number and the web origin.
 
-Stable Linux builds keep WebKit because CEF cannot read v1's WebKit profile.
-Changing runtimes needs a separate profile migration.
-
 V1 and v2 have different updater keys and default channels. Automatic delivery
 needs a v2 bundle signed for v1's verifier on its old channel, or a v1 bridge
 release that changes the key/channel first. This data migration does not change
