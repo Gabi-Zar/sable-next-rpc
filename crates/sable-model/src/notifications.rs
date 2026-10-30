@@ -736,6 +736,89 @@ mod tests {
     }
 
     #[test]
+    fn an_event_id_only_push_is_named_from_the_cached_room() {
+        let push = parsed(&json!({
+            "room_id": "!r:x", "event_id": "$e", "user_id": "@me:x", "unread": 1
+        }));
+        assert_eq!(
+            alert(&push, Some("Design crew"), true),
+            Some(PushAlert {
+                title: "Design crew".to_owned(),
+                body: "New message".to_owned(),
+                line: ConversationLine {
+                    sender: None,
+                    body: "New message".to_owned(),
+                    event_id: Some("$e".to_owned()),
+                },
+                tag: room_tag(Some("@me:x"), "!r:x"),
+                room_id: "!r:x".to_owned(),
+                event_id: Some("$e".to_owned()),
+                ring: false,
+                invite: false,
+            })
+        );
+        assert_eq!(room_tag(Some("@me:x"), "!r:x"), "@me:x !r:x");
+    }
+
+    #[test]
+    fn a_rich_push_prefers_the_name_the_server_sent() {
+        let push = parsed(&json!({
+            "room_id": "!r:x", "room_name": "Design crew", "sender_display_name": "Ada",
+            "content": {"body": "shipped the patch"}
+        }));
+        let shown = alert(&push, Some("Stale name"), true).expect("an alert");
+        assert_eq!(shown.title, "Design crew");
+        assert_eq!(shown.body, "Ada: shipped the patch");
+    }
+
+    #[test]
+    fn an_invitation_with_membership_content_says_so() {
+        let invite = parsed(&json!({
+            "room_id": "!r:x", "type": "m.room.member", "sender_display_name": "Ada",
+            "content": {"membership": "invite"}
+        }));
+        let shown = alert(&invite, Some("Design crew"), true).expect("an alert");
+        assert_eq!(shown.body, "Ada invited you");
+        assert!(shown.invite);
+    }
+
+    #[test]
+    fn a_call_notification_that_does_not_ring_stays_a_plain_alert() {
+        let notify = parsed(&json!({
+            "room_id": "!r:x", "type": "m.rtc.notification", "sender_display_name": "Ada",
+            "content": {"notification_type": "notification"}
+        }));
+        assert!(!alert(&notify, Some("Design crew"), true).unwrap().ring);
+    }
+
+    #[test]
+    fn hidden_previews_also_hide_the_conversation_line() {
+        let message = parsed(&json!({
+            "room_id": "!r:x", "event_id": "$e", "sender_display_name": "Ada",
+            "content": {"body": "the merger closes friday"}
+        }));
+        let hidden = alert(&message, Some("Design crew"), false).expect("an alert");
+        assert_eq!(hidden.body, "New message from Ada");
+        assert_eq!(hidden.line.body, "New message from Ada");
+    }
+
+    #[test]
+    fn a_plain_push_is_not_silenced_where_only_mentions_count() {
+        let plain = PushNotification {
+            event_type: Some("m.room.message".to_owned()),
+            ..PushNotification::default()
+        };
+        assert!(!silenced_by_room_mode(
+            &plain,
+            Some(NotificationModeView::Mentions)
+        ));
+        assert!(silenced_by_room_mode(
+            &plain,
+            Some(NotificationModeView::Mute)
+        ));
+    }
+
+    #[test]
     fn a_conversation_line_keeps_its_stored_field_names() {
         let line = ConversationLine {
             sender: None,

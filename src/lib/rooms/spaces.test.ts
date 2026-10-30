@@ -6,10 +6,11 @@ import {
   childRouting,
   joinedSpaceRooms,
   quietRoomIds,
-  spaceUnreadCounts,
   spacesContainingRoom,
+  spaceUnreadTotals,
 } from './spaces';
 import { withCounts } from '#lib/rooms/summary-fixtures.js';
+import { quietUnread, roomUnread } from './unread';
 
 function room(overrides: Partial<RoomListItemView>): RoomListItemView {
   return withCounts({
@@ -61,7 +62,7 @@ test('does not mark a space unread for a muted child room', () => {
     notification: { room: 'mute', default: 'all' },
   });
 
-  expect(spaceUnreadCounts([space], [space, muted])).toEqual(new Map());
+  expect(spaceUnreadTotals([space], [space, muted], roomUnread)).toEqual(new Map());
 });
 
 test('sums the mentions of a space across its nested rooms, counting each room once', () => {
@@ -96,7 +97,7 @@ test('sums the mentions of a space across its nested rooms, counting each room o
   const deep = room({ room_id: '!deep:example.org', unread: 4, notifying: 4, highlight: 1 });
   const shared = room({ room_id: '!shared:example.org', unread: 2, notifying: 2, highlight: 2 });
 
-  expect(spaceUnreadCounts([root, sub], [root, sub, deep, shared])).toEqual(
+  expect(spaceUnreadTotals([root, sub], [root, sub, deep, shared], roomUnread)).toEqual(
     new Map([
       ['!root:example.org', { unread: 6, highlight: 3, marked: false, notifying: 6 }],
       ['!sub:example.org', { unread: 6, highlight: 3, marked: false, notifying: 6 }],
@@ -124,7 +125,7 @@ test('a hand-marked room dots its parent space, even muted', () => {
     notification: { room: 'mute', default: 'all' },
   });
 
-  expect(spaceUnreadCounts([root], [root, muted])).toEqual(
+  expect(spaceUnreadTotals([root], [root, muted], roomUnread)).toEqual(
     new Map([['!root:example.org', { unread: 0, highlight: 0, marked: true, notifying: 0 }]])
   );
 });
@@ -196,7 +197,7 @@ test('a mentions-only child still marks its space unread', () => {
   });
   const quiet = room({ room_id: '!quiet:example.org', unread: 5, highlight: 0 });
 
-  expect(spaceUnreadCounts([space], [space, quiet])).toEqual(
+  expect(spaceUnreadTotals([space], [space, quiet], roomUnread)).toEqual(
     new Map([['!space:example.org', { unread: 5, highlight: 0, marked: false, notifying: 0 }]])
   );
 });
@@ -218,7 +219,9 @@ test('a space totals how much of its unread notified', () => {
   });
   const loud = room({ room_id: '!loud:example.org', unread: 4, notifying: 4 });
   const quiet = room({ room_id: '!quiet:example.org', unread: 5 });
-  const totals = spaceUnreadCounts([space], [space, loud, quiet]).get('!space:example.org');
+  const totals = spaceUnreadTotals([space], [space, loud, quiet], roomUnread).get(
+    '!space:example.org'
+  );
 
   expect(totals?.unread).toBe(9);
   expect(totals?.notifying).toBe(4);
@@ -262,8 +265,13 @@ test('a hidden room adds only its mentions to its space', () => {
   const mentioned = room({ room_id: '!quiet:example.org', unread: 5, notifying: 5, highlight: 1 });
   const hidden = new Set([quiet.room_id]);
 
-  expect(spaceUnreadCounts([space], [space, quiet], hidden)).toEqual(new Map());
-  expect(spaceUnreadCounts([space], [space, mentioned], hidden).get(space.room_id)).toEqual({
+  const unreadFor = (candidate: RoomListItemView) => {
+    const loud = roomUnread(candidate);
+    return hidden.has(candidate.room_id) ? quietUnread(loud) : loud;
+  };
+
+  expect(spaceUnreadTotals([space], [space, quiet], unreadFor)).toEqual(new Map());
+  expect(spaceUnreadTotals([space], [space, mentioned], unreadFor).get(space.room_id)).toEqual({
     unread: 1,
     highlight: 1,
     marked: false,

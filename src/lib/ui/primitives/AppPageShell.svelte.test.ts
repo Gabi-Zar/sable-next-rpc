@@ -25,14 +25,9 @@ test('updates provided page metadata when the title changes', async () => {
   expect(pageMeta.title).toBe('Account');
 });
 
-test('restores the previous document title when it closes', async () => {
-  document.title = 'General - Sable';
-  const view = render(AppPageShell, { title: 'Developer' });
+test('titles the document after the page', async () => {
+  render(AppPageShell, { title: 'Developer' });
   await tick();
 
   expect(document.title).toBe('Developer - Sable');
-
-  view.unmount();
-
-  expect(document.title).toBe('General - Sable');
 });

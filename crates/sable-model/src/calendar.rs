@@ -980,6 +980,84 @@ mod tests {
     }
 
     #[test]
+    fn rules_expand_weekdays_intervals_nth_days_and_month_ends() {
+        let times = |rule: Value, start: &str, count: u32| {
+            let mut rule = rule;
+            rule["count"] = json!(count);
+            wall_times(
+                &item(&json!({"uid": "u", "start": start, "recurrenceRules": [rule]})),
+                "9999",
+            )
+            .iter()
+            .map(|time| time.chars().take(10).collect::<String>())
+            .collect::<Vec<_>>()
+        };
+        let day = |name: &str| json!({"@type": "NDay", "day": name});
+        let nth = |name: &str, nth: i64| json!({"@type": "NDay", "day": name, "nthOfPeriod": nth});
+
+        assert_eq!(
+            times(
+                json!({"frequency": "weekly", "byDay": [day("mo"), day("we"), day("fr")]}),
+                "2026-10-05T18:00:00",
+                5
+            ),
+            [
+                "2026-10-05",
+                "2026-10-07",
+                "2026-10-09",
+                "2026-10-12",
+                "2026-10-14"
+            ]
+        );
+        assert_eq!(
+            times(
+                json!({"frequency": "weekly", "byDay": [day("mo")]}),
+                "2026-10-07T18:00:00",
+                3
+            ),
+            ["2026-10-07", "2026-10-12", "2026-10-19"]
+        );
+        assert_eq!(
+            times(
+                json!({"frequency": "weekly", "interval": 2, "byDay": [day("tu"), day("th")]}),
+                "2026-10-06T18:00:00",
+                4
+            ),
+            ["2026-10-06", "2026-10-08", "2026-10-20", "2026-10-22"]
+        );
+        assert_eq!(
+            times(
+                json!({"frequency": "monthly", "byDay": [nth("tu", 2)]}),
+                "2026-10-13T18:00:00",
+                3
+            ),
+            ["2026-10-13", "2026-11-10", "2026-12-08"]
+        );
+        assert_eq!(
+            times(
+                json!({"frequency": "monthly", "byMonthDay": [-1]}),
+                "2026-10-31T09:00:00",
+                5
+            ),
+            [
+                "2026-10-31",
+                "2026-11-30",
+                "2026-12-31",
+                "2027-01-31",
+                "2027-02-28"
+            ]
+        );
+        assert_eq!(
+            times(
+                json!({"frequency": "yearly", "byMonth": ["3"], "byDay": [nth("su", -1)]}),
+                "2026-03-29T09:00:00",
+                4
+            ),
+            ["2026-03-29"]
+        );
+    }
+
+    #[test]
     fn n_days_read_leniently_and_a_bad_entry_voids_the_list() {
         let days = |value: Value| read_n_days(Some(&value));
         assert_eq!(

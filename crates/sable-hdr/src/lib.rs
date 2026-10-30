@@ -295,50 +295,6 @@ mod tests {
 }
 
 #[cfg(test)]
-mod timing {
-    use super::{HdrToSdr, OBS_PEAK_NITS, OBS_SDR_WHITE_NITS, Scratch};
-
-    #[test]
-    #[ignore = "timing probe, run with --release --ignored --nocapture"]
-    fn a_1080p_frame() {
-        let map = HdrToSdr::new(OBS_SDR_WHITE_NITS, OBS_PEAK_NITS);
-        let width = 1920;
-        let source: Vec<u16> = (0..width * 4)
-            .map(|index| {
-                half::f16::from_f32(f32::from(u16::try_from(index % 97).unwrap_or(0)) / 8.0)
-                    .to_bits()
-            })
-            .collect();
-        let frame: Vec<u16> = source
-            .iter()
-            .copied()
-            .cycle()
-            .take(width * 4 * 1080)
-            .collect();
-        let mut out = vec![0u8; width * 4];
-        let mut scratch = Scratch::default();
-        let start = std::time::Instant::now();
-        for _ in 0..1080 {
-            map.scrgb_row(&source, &mut scratch, &mut out);
-        }
-        println!("TIMING 1080p frame, one core: {:?}", start.elapsed());
-
-        let mut whole = vec![0u8; width * 4 * 1080];
-        let start = std::time::Instant::now();
-        for _ in 0..10 {
-            map.frame(
-                &frame,
-                width * 4,
-                &mut whole,
-                width * 4,
-                HdrToSdr::scrgb_row,
-            );
-        }
-        println!("TIMING 1080p frame, all cores: {:?}", start.elapsed() / 10);
-    }
-}
-
-#[cfg(test)]
 mod bytes {
     use half::f16;
 

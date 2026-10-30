@@ -6,7 +6,7 @@ import {
   localToEpoch,
   monthGrid,
   occursOn,
-  readEntry,
+  readEntries,
   tallyRsvps,
   type Occurrence,
 } from './calendar-events.js';
@@ -25,13 +25,8 @@ describe('calendar events', () => {
     );
   });
 
-  it('skips events without a uid or start', () => {
-    expect(readEntry(entry({ title: 'x', start: '2026-10-01T20:00:00' }))).toBeNull();
-    expect(readEntry(entry({ uid: 'u', start: 'soon' }))).toBeNull();
-  });
-
   it('expands a weekly rule inside the window only', () => {
-    const item = readEntry(
+    const items = readEntries([
       entry({
         uid: 'raid',
         title: 'Raid',
@@ -39,10 +34,9 @@ describe('calendar events', () => {
         timeZone: 'UTC',
         duration: 'PT2H',
         recurrenceRules: [{ frequency: 'weekly', count: 3 }],
-      })
-    );
-    expect(item).not.toBeNull();
-    const found = agenda(item ? [item] : [], Date.UTC(2026, 9, 5), Date.UTC(2026, 11, 1));
+      }),
+    ]);
+    const found = agenda(items, Date.UTC(2026, 9, 5), Date.UTC(2026, 11, 1));
     expect(found.map((occurrence) => new Date(occurrence.start).toISOString())).toEqual([
       '2026-10-08T20:00:00.000Z',
       '2026-10-15T20:00:00.000Z',
@@ -145,8 +139,7 @@ describe('calendar events', () => {
     expect(event.recurrenceRules).toEqual([
       { '@type': 'RecurrenceRule', frequency: 'weekly', until: '2026-12-01T23:59:59' },
     ]);
-    const item = readEntry(entry(event));
-    const found = agenda(item ? [item] : [], Date.UTC(2026, 8, 1), Date.UTC(2027, 8, 1));
+    const found = agenda(readEntries([entry(event)]), Date.UTC(2026, 8, 1), Date.UTC(2027, 8, 1));
     expect(found).toHaveLength(9);
     expect(new Date(found.at(-1)?.start ?? 0).toISOString()).toBe('2026-11-26T20:00:00.000Z');
   });
@@ -165,36 +158,6 @@ describe('calendar events', () => {
     ]);
     const changed = buildEvent({ ...draft, frequency: 'daily' }, base, 'raid', 0, 'UTC');
     expect(changed.recurrenceRules).toEqual([{ '@type': 'RecurrenceRule', frequency: 'daily' }]);
-  });
-
-  it('skips months that have no such day instead of rolling over', () => {
-    const item = readEntry(
-      entry({
-        uid: 'rent',
-        start: '2027-01-31T09:00:00',
-        timeZone: 'UTC',
-        duration: 'PT1H',
-        recurrenceRules: [{ frequency: 'monthly', count: 3 }],
-      })
-    );
-    const found = agenda(item ? [item] : [], Date.UTC(2027, 0, 1), Date.UTC(2028, 0, 1));
-    expect(found.map((occurrence) => new Date(occurrence.start).toISOString())).toEqual([
-      '2027-01-31T09:00:00.000Z',
-      '2027-03-31T09:00:00.000Z',
-      '2027-05-31T09:00:00.000Z',
-    ]);
-  });
-
-  it('skips an event whose start date does not exist', () => {
-    const item = readEntry(
-      entry({
-        uid: 'bad',
-        start: '2027-02-30T09:00:00',
-        timeZone: 'UTC',
-        recurrenceRules: [{ frequency: 'monthly' }],
-      })
-    );
-    expect(agenda(item ? [item] : [], 0, Date.UTC(2028, 0, 1))).toEqual([]);
   });
 
   it('stores an all-day event as floating whole days', () => {
@@ -217,75 +180,6 @@ describe('calendar events', () => {
       duration: 'P2D',
       showWithoutTime: true,
     });
-  });
-
-  function dates(rule: Record<string, unknown>, start: string, count = 4): string[] {
-    const item = readEntry(
-      entry({
-        uid: 'r',
-        start,
-        timeZone: 'UTC',
-        duration: 'PT1H',
-        recurrenceRules: [{ count, ...rule }],
-      })
-    );
-    return agenda(item ? [item] : [], Date.UTC(2026, 0, 1), Date.UTC(2028, 0, 1)).map(
-      (occurrence) => new Date(occurrence.start).toISOString().slice(0, 10)
-    );
-  }
-
-  const day = (name: string, nthOfPeriod?: number) => ({ '@type': 'NDay', day: name, nthOfPeriod });
-
-  it('repeats on the listed weekdays, as Commet writes a weekly rule', () => {
-    expect(
-      dates(
-        { frequency: 'weekly', byDay: [day('mo'), day('we'), day('fr')] },
-        '2026-10-05T18:00:00',
-        5
-      )
-    ).toEqual(['2026-10-05', '2026-10-07', '2026-10-09', '2026-10-12', '2026-10-14']);
-  });
-
-  it('keeps the start as the first occurrence even off the listed weekdays', () => {
-    expect(dates({ frequency: 'weekly', byDay: [day('mo')] }, '2026-10-07T18:00:00', 3)).toEqual([
-      '2026-10-07',
-      '2026-10-12',
-      '2026-10-19',
-    ]);
-  });
-
-  it('skips whole weeks for an interval', () => {
-    expect(
-      dates(
-        { frequency: 'weekly', interval: 2, byDay: [day('tu'), day('th')] },
-        '2026-10-06T18:00:00'
-      )
-    ).toEqual(['2026-10-06', '2026-10-08', '2026-10-20', '2026-10-22']);
-  });
-
-  it('finds the nth and the last weekday of each month', () => {
-    expect(
-      dates({ frequency: 'monthly', byDay: [day('tu', 2)] }, '2026-10-13T18:00:00', 3)
-    ).toEqual(['2026-10-13', '2026-11-10', '2026-12-08']);
-    expect(
-      dates({ frequency: 'monthly', byDay: [day('fr', -1)] }, '2026-10-30T18:00:00', 3)
-    ).toEqual(['2026-10-30', '2026-11-27', '2026-12-25']);
-  });
-
-  it('counts month days back from the end', () => {
-    expect(dates({ frequency: 'monthly', byMonthDay: [-1] }, '2026-10-31T09:00:00', 5)).toEqual([
-      '2026-10-31',
-      '2026-11-30',
-      '2026-12-31',
-      '2027-01-31',
-      '2027-02-28',
-    ]);
-  });
-
-  it('shows only the start for a rule part it cannot expand, rather than guess', () => {
-    expect(
-      dates({ frequency: 'yearly', byMonth: ['3'], byDay: [day('su', -1)] }, '2026-03-29T09:00:00')
-    ).toEqual(['2026-03-29']);
   });
 });
 

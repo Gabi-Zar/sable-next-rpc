@@ -1,11 +1,6 @@
-import type {
-  CalendarEntryView,
-  CalendarItem,
-  Frequency,
-  RsvpStatusView,
-} from '#src/generated/protocol';
+import type { CalendarItem, Frequency, RsvpStatusView } from '#src/generated/protocol';
 
-import { buildCalendarEvent, calendarWallTimes, readCalendarEntries } from '#lib/model/model.js';
+import { buildCalendarEvent, calendarWallTimes } from '#lib/model/model.js';
 
 export type { CalendarItem, Frequency } from '#src/generated/protocol';
 export { readCalendarEntries as readEntries, tallyRsvps } from '#lib/model/model.js';
@@ -104,10 +99,6 @@ function occurrences(item: CalendarItem, from: number, to: number): Occurrence[]
       found.push({ item, recurrenceId: item.recurrence === null ? null : local, start, end });
   }
   return found;
-}
-
-export function readEntry(entry: CalendarEntryView): CalendarItem | null {
-  return readCalendarEntries([entry])[0] ?? null;
 }
 
 export function startOfDay(at: number, daysAhead = 0): number {

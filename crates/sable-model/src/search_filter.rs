@@ -683,6 +683,14 @@ mod tests {
     }
 
     #[test]
+    fn a_bare_negated_word_is_a_body_exclusion() {
+        let filter = filter("deploy -staging");
+
+        assert_eq!(filter.exclude, ["staging"]);
+        assert_eq!(filter.not_senders, [] as [String; 0]);
+    }
+
+    #[test]
     fn a_full_user_id_needs_no_directory_entry() {
         assert_eq!(
             filter("from:@someone:example.org").senders,

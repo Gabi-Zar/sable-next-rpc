@@ -1060,6 +1060,25 @@ mod tests {
 
     #[cfg(not(target_family = "wasm"))]
     #[tokio::test]
+    async fn discovery_returns_the_homeserver_endpoint() {
+        use matrix_sdk::test_utils::mocks::MatrixMockServer;
+        let server = MatrixMockServer::new().await;
+        server.mock_versions().ok().mount().await;
+        let (core, _events) = Core::new(
+            "sable-discovery",
+            Box::new(crate::store::MemorySessionStore::default()),
+        );
+        let found = core
+            .run(crate::api::auth::DiscoverHomeserverParams {
+                server_name: server.server().uri(),
+            })
+            .await
+            .expect("discovery succeeds");
+        assert!(found.contains(&server.server().uri()), "{found}");
+    }
+
+    #[cfg(not(target_family = "wasm"))]
+    #[tokio::test]
     async fn a_rejected_reauthentication_logs_the_issued_session_out() {
         use matrix_sdk::ruma::{device_id, user_id};
         use matrix_sdk::test_utils::mocks::MatrixMockServer;

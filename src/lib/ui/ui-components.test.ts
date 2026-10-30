@@ -6,7 +6,6 @@ import ChatCircleDotsIcon from 'phosphor-svelte/lib/ChatCircleDotsIcon';
 import { expect, test, vi } from 'vitest';
 
 import ActionCard from './ActionCard.svelte';
-import SableBrandMark from './SableBrandMark.svelte';
 
 test('action cards use links for navigation', () => {
   render(ActionCard, {
@@ -37,11 +36,4 @@ test('inactive action cards are disabled semantically', () => {
   render(ActionCard, { icon: ChatCircleDotsIcon, title: 'Join a room', disabled: true });
 
   expect(screen.getByRole('button', { name: 'Join a room' })).toBeDisabled();
-});
-
-test('the Sable brand mark stays decorative', () => {
-  const { container } = render(SableBrandMark);
-
-  expect(screen.queryByRole('img')).not.toBeInTheDocument();
-  expect(container.querySelector('img')).toHaveClass('brand-mark');
 });

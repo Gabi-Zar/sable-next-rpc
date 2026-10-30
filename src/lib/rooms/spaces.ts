@@ -1,17 +1,6 @@
 import type { RoomListItemView } from '#src/generated/protocol';
 
-import { quietUnread, type RoomUnread, roomUnread, type UnreadCount } from './unread.js';
-
-export function spaceUnreadCounts(
-  spaces: readonly RoomListItemView[],
-  rooms: readonly RoomListItemView[],
-  quiet: ReadonlySet<string> = new Set()
-): Map<string, UnreadCount> {
-  return spaceUnreadTotals(spaces, rooms, (room) => {
-    const loud = roomUnread(room);
-    return quiet.has(room.room_id) ? quietUnread(loud) : loud;
-  });
-}
+import type { RoomUnread, UnreadCount } from './unread.js';
 
 export function spaceUnreadTotals(
   spaces: readonly RoomListItemView[],

@@ -153,6 +153,38 @@ mod tests {
         assert_eq!(address(""), None);
     }
 
+    #[test]
+    fn a_join_address_keeps_via_out_of_every_room_form() {
+        let address =
+            |input: &str| parse_join_address(input).map(|found| (found.address, found.via));
+        let via = |servers: &[&str]| servers.iter().map(|server| (*server).to_owned()).collect();
+        let v12 = "!dIz4NfOB_FDBH4ktZeSqqTfPEcBwm4KnNTnJptVRDko";
+
+        assert_eq!(address(v12), Some((v12.to_owned(), Vec::new())));
+        assert_eq!(
+            address(&format!("https://matrix.to/#/{v12}?via=one.org")),
+            Some((v12.to_owned(), via(&["one.org"])))
+        );
+        assert_eq!(
+            address("https://matrix.to/#/!abc:example.org?via=one.org&via=two.org"),
+            Some(("!abc:example.org".to_owned(), via(&["one.org", "two.org"])))
+        );
+        assert_eq!(
+            address("matrix:roomid/abc:example.org?via=one.org"),
+            Some(("!abc:example.org".to_owned(), via(&["one.org"])))
+        );
+        assert_eq!(
+            address("https://matrix.to/#/#room:example.org/$event"),
+            Some(("#room:example.org".to_owned(), Vec::new()))
+        );
+        assert_eq!(
+            address("matrix:roomid/opaque?via=a.example&via=b.example#reserved?via=wrong.example"),
+            Some(("!opaque".to_owned(), via(&["a.example", "b.example"])))
+        );
+        assert_eq!(address("room:example.org"), None);
+        assert_eq!(address("https://example.org/#/!abc:example.org"), None);
+    }
+
     fn user(id: &str) -> MatrixLink {
         MatrixLink::User {
             user_id: id.to_owned(),
@@ -191,6 +223,10 @@ mod tests {
             (
                 "https://matrix.to/#/%23lobby%3Aexample.org",
                 room("#lobby:example.org"),
+            ),
+            (
+                "https://matrix.to/#/!6DYBIzUfDoKmqk53wyRqcod2G7LTcR9fEm9XBfaenNI?via=sable.moe",
+                room("!6DYBIzUfDoKmqk53wyRqcod2G7LTcR9fEm9XBfaenNI"),
             ),
         ] {
             assert_eq!(parse_matrix_link(href), Some(expected), "{href}");

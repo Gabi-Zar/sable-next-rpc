@@ -36,35 +36,6 @@ export function orderBetween(before: string | null, after: string | null): strin
   return null;
 }
 
-export function orderKeys(desired: readonly (string | null)[]): (string | null)[] {
-  const keys: (string | null)[] = [];
-  let previous: string | null = null;
-
-  for (const [index, current] of desired.entries()) {
-    const trailingUnordered = desired.slice(index).every((entry) => entry === null);
-    if (current === null && trailingUnordered && previous === null) {
-      keys.push(null);
-      continue;
-    }
-
-    if (current !== null && (previous === null || previous < current)) {
-      keys.push(current);
-      previous = current;
-      continue;
-    }
-
-    const nextFixed =
-      desired.slice(index + 1).find((entry) => entry !== null && entry > (previous ?? '')) ?? null;
-    const generated = orderBetween(previous, nextFixed);
-    if (generated === null) return renumber(desired.length);
-
-    keys.push(generated);
-    previous = generated;
-  }
-
-  return keys;
-}
-
 function renumber(count: number): string[] {
   const span = LAST - FIRST + 1;
   const width = Math.max(1, Math.ceil(Math.log(Math.max(count, 1)) / Math.log(span)) + 1);

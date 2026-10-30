@@ -2,7 +2,7 @@ import { expect, test } from 'vitest';
 
 import type { DropEdge } from '#lib/ui/drag-list.js';
 
-import { dropIndex, orderBetween, orderKeys, reorderChildren, sortEdges } from './space-order';
+import { dropIndex, orderBetween, reorderChildren, sortEdges } from './space-order';
 
 type Child = { roomId: string; order: string | null };
 
@@ -68,43 +68,6 @@ test('generated keys stay inside the printable ASCII range the spec allows', () 
     }
     expect(next.length).toBeLessThanOrEqual(50);
     low = next;
-  }
-});
-
-test('an already sorted list keeps every key it had', () => {
-  expect(orderKeys(['a', 'b', 'c'])).toEqual(['a', 'b', 'c']);
-});
-
-test('a fully unordered list is left unordered', () => {
-  expect(orderKeys([null, null, null])).toEqual([null, null, null]);
-});
-
-test('an unordered entry ahead of an ordered one is given a key', () => {
-  const keys = orderKeys([null, 'm']);
-
-  expect(must(keys[0]) < 'm').toBe(true);
-  expect(keys[1]).toBe('m');
-});
-
-test('an out of sequence key is rewritten to keep the list ascending', () => {
-  const keys = orderKeys(['b', 'a', 'c']);
-
-  expect(keys[0]).toBe('b');
-  expect('b' < must(keys[1])).toBe(true);
-  expect(must(keys[1]) < 'c').toBe(true);
-  expect(keys[2]).toBe('c');
-});
-
-test('every key orderKeys returns is strictly ascending', () => {
-  const cases: (string | null)[][] = [
-    ['c', 'a', 'b'],
-    [null, 'a', null, 'b'],
-    ['z', null, null],
-    ['a', 'a', 'a'],
-  ];
-
-  for (const input of cases) {
-    expect(ascending(orderKeys(input))).toBe(true);
   }
 });
 

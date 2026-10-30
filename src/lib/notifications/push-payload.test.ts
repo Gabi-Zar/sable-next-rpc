@@ -1,276 +1,47 @@
 import { expect, test } from 'vitest';
 
 import { pushNotification } from './push-fixtures';
-import {
-  parsePushPayload,
-  pushAlert,
-  type PushContent,
-  type PushNotification,
-  silencedByRoomMode,
-  webPushValidation,
-} from './push-payload';
+import { parsePushPayload, pushAlert, silencedByRoomMode, webPushValidation } from './push-payload';
 
-function content(fields: Partial<PushContent>): PushContent {
-  return { body: null, membership: null, notification_type: null, ...fields };
-}
+test('the wasm binding parses a payload and renders its alert across JSON', () => {
+  const parsed = parsePushPayload(
+    JSON.stringify({
+      user_id: '@me:example.org',
+      notification: {
+        room_id: '!room:example.org',
+        event_id: '$event',
+        sender_display_name: 'Ada',
+        content: { body: 'hello' },
+      },
+    })
+  );
 
-function parsedPayload(raw: string): PushNotification {
-  const parsed = parsePushPayload(raw);
   if (parsed === null) throw new Error('invalid push payload');
-  return parsed;
-}
-
-test('a counts-only push updates the badge and shows nothing', () => {
-  const counts = parsedPayload(JSON.stringify({ notification: { counts: { unread: 4 } } }));
-
-  expect(counts.unread).toBe(4);
-  expect(pushAlert(counts, null, true)).toBeNull();
-  expect(parsedPayload(JSON.stringify({ room_id: '!room:example.org' })).unread).toBeNull();
-});
-
-test('a flattened notification (MSC4174) reads its top-level unread', () => {
-  const flattened = parsedPayload(
-    JSON.stringify({
-      room_id: '!room:example.org',
-      event_id: '$event',
-      user_id: '@me:example.org',
-      unread: 2,
-    })
-  );
-
-  expect(flattened.unread).toBe(2);
-});
-
-test('a hidden push name falls back to the sender ID', () => {
-  const parsed = parsedPayload(
-    JSON.stringify({
-      room_id: '!room:example.org',
-      sender: '@alice:example.org',
-      sender_display_name: '\u200b\u2800',
-    })
-  );
-
-  expect(parsed.sender_display_name).toBe('@alice:example.org');
-});
-
-test('an event_id_only push names the room from what the app cached', () => {
-  const showing = pushAlert(
-    pushNotification({
-      room_id: '!room:example.org',
-      event_id: '$event',
-      user_id: '@me:example.org',
-      unread: 1,
-    }),
-    'Design crew',
-    true
-  );
-
-  expect(showing).toEqual({
+  expect(parsePushPayload('invalid')).toBeNull();
+  expect(pushAlert(parsed, 'Design crew', true)).toEqual({
     title: 'Design crew',
-    body: 'New message',
-    line: { sender: null, body: 'New message', eventId: '$event' },
+    body: 'Ada: hello',
+    line: { sender: 'Ada', body: 'hello', eventId: '$event' },
     tag: '@me:example.org !room:example.org',
     room_id: '!room:example.org',
     event_id: '$event',
     ring: false,
     invite: false,
   });
+  expect(pushAlert(parsed, 'Design crew', false)?.body).toBe('New message from Ada');
 });
 
-test('a rich push prefers the name the server sent', () => {
-  const showing = pushAlert(
-    pushNotification({
-      room_id: '!room:example.org',
-      room_name: 'Design crew',
-      sender_display_name: 'Ada',
-      content: content({ body: 'shipped the patch' }),
-    }),
-    'Stale name',
-    true
-  );
-
-  expect(showing?.title).toBe('Design crew');
-  expect(showing?.body).toBe('Ada: shipped the patch');
-});
-
-test('content stays out when the reader asked it to', () => {
-  const rich = pushNotification({
-    room_id: '!room:example.org',
-    sender_display_name: 'Ada',
-    content: content({ body: 'shipped the patch' }),
-  });
-
-  expect(pushAlert(rich, null, false)?.body).toBe('New message from Ada');
-});
-
-test('an invitation says so rather than reading as a message', () => {
-  const invite = pushNotification({
-    room_id: '!room:example.org',
-    type: 'm.room.member',
-    sender_display_name: 'Ada',
-    content: content({ membership: 'invite' }),
-  });
-
-  expect(pushAlert(invite, 'Design crew', true)?.body).toBe('Ada invited you');
-});
-
-test('an invitation whose gateway sends no content still reads as one', () => {
-  const invite = parsedPayload(
-    JSON.stringify({
-      notification: {
-        room_id: '!room:example.org',
-        event_id: '$invite',
-        type: 'm.room.member',
-        membership: 'invite',
-        sender_display_name: 'Ada',
-        user_id: '@me:example.org',
-      },
-    })
-  );
-
-  const shown = pushAlert(invite, 'Design crew', true);
-  expect(shown?.body).toBe('Ada invited you');
-  expect(shown?.invite).toBe(true);
-});
-
-test('a ring reads as a call and asks to be answered', () => {
-  const ring = pushNotification({
-    room_id: '!room:example.org',
-    event_id: '$ring',
-    type: 'org.matrix.msc4075.rtc.notification',
-    sender_display_name: 'Ada',
-    content: content({ body: 'ignored', notification_type: 'ring' }),
-  });
-
-  const shown = pushAlert(ring, 'Design crew', true);
-  expect(shown?.body).toBe('Ada is calling');
-  expect(shown?.ring).toBe(true);
-});
-
-test('a call notification that does not ring stays a plain alert', () => {
-  const notify = pushNotification({
-    room_id: '!room:example.org',
-    type: 'm.rtc.notification',
-    sender_display_name: 'Ada',
-    content: content({ notification_type: 'notification' }),
-  });
-
-  expect(pushAlert(notify, 'Design crew', true)?.ring).toBe(false);
-});
-
-test('an unnamed room falls back rather than showing a room id', () => {
-  expect(pushAlert(pushNotification({ room_id: '!room:example.org' }), null, true)?.title).toBe(
-    'Sable'
-  );
-});
-
-test.each(['flat', 'object', 'string'])('gateway %s payloads retain the recipient', (wrapper) => {
-  const notification = { room_id: '!room:example.org', event_id: '$event' };
-  const raw =
-    wrapper === 'flat'
-      ? { ...notification, user_id: '@me:example.org' }
-      : {
-          user_id: '@me:example.org',
-          notification: wrapper === 'string' ? JSON.stringify(notification) : notification,
-        };
-  const parsed = parsedPayload(JSON.stringify(raw));
-  expect(pushAlert(parsed, null, true)?.tag).toBe('@me:example.org !room:example.org');
-});
-
-test('device metadata identifies a forwarded Matrix push', () => {
-  const parsed = parsedPayload(
-    JSON.stringify({
-      notification: {
-        room_id: '!room:example.org',
-        devices: [{ data: { default_payload: { user_id: '@me:example.org' } } }],
-      },
-    })
-  );
-  expect(pushAlert(parsed, null, true)?.tag).toBe('@me:example.org !room:example.org');
-});
-
-test('malformed and conflicting gateway payloads are rejected', () => {
-  for (const raw of [
-    'invalid',
-    '[]',
-    'null',
-    '{"notification":null}',
-    JSON.stringify({
-      user_id: '@a:example.org',
-      notification: { user_id: '@b:example.org', room_id: '!r:example.org' },
-    }),
-  ])
-    expect(parsePushPayload(raw)).toBeNull();
-});
-
-const validation = JSON.stringify({ app_id: 'moe.sable.webpush', ack_token: 'tok' });
-
-test('the MSC4174 validation push is not a notification', () => {
-  expect(parsePushPayload(validation)).toBeNull();
-  expect(webPushValidation(validation)).toEqual({
-    app_id: 'moe.sable.webpush',
-    ack_token: 'tok',
-  });
-});
-
-test('a notification carrying the same fields is still a notification', () => {
-  const notification = JSON.stringify({
-    app_id: 'moe.sable.webpush',
-    ack_token: 'tok',
-    room_id: '!room:example.org',
-    event_id: '$event',
-  });
-
-  expect(webPushValidation(notification)).toBeNull();
-  expect(parsedPayload(notification).room_id).toBe('!room:example.org');
-});
-
-test('an unparseable or incomplete handshake acknowledges nothing', () => {
-  expect(webPushValidation(undefined)).toBeNull();
-  expect(webPushValidation('not json')).toBeNull();
-  expect(webPushValidation(JSON.stringify({ app_id: 'moe.sable.webpush' }))).toBeNull();
-  expect(webPushValidation(JSON.stringify({ app_id: '', ack_token: 'tok' }))).toBeNull();
-  expect(
-    webPushValidation(JSON.stringify({ app_id: 'a', ack_token: 'tok', unread: 0 }))
-  ).toBeNull();
-});
-
-test('a push renders no preview while the reader has previews off', () => {
-  const message = pushNotification({
-    room_id: '!room:example.org',
-    event_id: '$event',
-    sender_display_name: 'Ada',
-    content: content({ body: 'the merger closes friday' }),
-  });
-
-  const hidden = pushAlert(message, 'Design crew', false);
-  expect(hidden?.body).toBe('New message from Ada');
-  expect(hidden?.line.body).toBe('New message from Ada');
-
-  expect(pushAlert(message, 'Design crew', true)?.body).toBe('Ada: the merger closes friday');
-});
-
-test('an encrypted push is silenced in a room that only wants mentions', () => {
+test('the wasm binding reports the room mode that silences a push', () => {
   const encrypted = pushNotification({ room_id: '!room:example.org', type: 'm.room.encrypted' });
-  const plain = pushNotification({ room_id: '!room:example.org', type: 'm.room.message' });
 
   expect(silencedByRoomMode(encrypted, 'mentions')).toBe(true);
-  expect(silencedByRoomMode(plain, 'mentions')).toBe(false);
-  expect(silencedByRoomMode(encrypted, 'all')).toBe(false);
   expect(silencedByRoomMode(encrypted, null)).toBe(false);
-  expect(silencedByRoomMode(plain, 'mute')).toBe(true);
 });
 
-test('a push is noisy when its rule set a sound or a highlight', () => {
-  const push = (tweaks: object) =>
-    parsedPayload(
-      JSON.stringify({
-        notification: { room_id: '!room:example.org', devices: [{ pushkey: 'k', tweaks }] },
-      })
-    ).noisy;
-
-  expect(push({ sound: 'default' })).toBe(true);
-  expect(push({ highlight: true })).toBe(true);
-  expect(push({ highlight: false })).toBe(false);
-  expect(push({})).toBe(false);
+test('the wasm binding reads the validation handshake and tolerates a missing body', () => {
+  expect(
+    webPushValidation(JSON.stringify({ app_id: 'moe.sable.webpush', ack_token: 'tok' }))
+  ).toEqual({ app_id: 'moe.sable.webpush', ack_token: 'tok' });
+  expect(webPushValidation(undefined)).toBeNull();
+  expect(webPushValidation('not json')).toBeNull();
 });

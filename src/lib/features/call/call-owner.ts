@@ -25,8 +25,6 @@ export function acquireCallOwner(kind: CallOwnerKind, roomId: string): CallOwner
   return lease;
 }
 
-export const activeCallOwner = (): Pick<CallOwnerLease, 'kind' | 'roomId'> | undefined => active;
-
 export function resetCallOwner(): void {
   active = undefined;
 }
