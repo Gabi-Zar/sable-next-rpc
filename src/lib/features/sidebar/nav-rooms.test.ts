@@ -61,7 +61,9 @@ test('a child removed from its space is not claimed', () => {
     room({
       room_id: '!space',
       room_kind: 'space',
-      space_children: [{ room_id: '!removed', via: [] }] as RoomListItemView['space_children'],
+      space_children: [
+        { room_id: '!removed', via: [], order: null, origin_server_ts: 0, suggested: false },
+      ],
     }),
   ]);
 
