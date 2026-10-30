@@ -21,7 +21,7 @@ tauri-codegen = "2.7.0"
 
 [dev-dependencies]
 quote = "1"
-tempfile = "3"
+tempfile = { workspace = true }
 tauri-codegen = "2.7.0"
 
 [dependencies]

@@ -11,11 +11,11 @@ typegen = ["dep:specta", "dep:specta-typescript"]
 
 [dependencies]
 form_urlencoded = { workspace = true }
-html-escape = "0.3"
+html-escape = { workspace = true }
 icu_properties = { workspace = true }
 jiff = { workspace = true }
 idna = { workspace = true }
-linkify = "0.11"
+linkify = { workspace = true }
 pulldown-cmark = { workspace = true }
 regex-lite = { workspace = true }
 ruma-html = { workspace = true }
