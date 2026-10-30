@@ -1,6 +1,5 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { parse } from 'semver';
 import { changelogSectionIn } from '../lib/changelog.mjs';
 
 /** The Fastlane changelog code is the version number times ten plus the ABI. */
@@ -16,11 +15,19 @@ export function fastlaneChangelogs(version) {
   return Object.values(ABI_CODES).map((abi) => join(FASTLANE_DIR, `${base * 10 + abi}.txt`));
 }
 
+// The release job installs no packages, so this cannot use `semver`.
+const STABLE_VERSION = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
+
+function parseStable(version) {
+  const match = STABLE_VERSION.exec(version ?? '');
+  if (!match) return null;
+  const [major, minor, patch] = match.slice(1).map(Number);
+  return { major, minor, patch };
+}
+
 function stableVersion(version) {
-  const parsed = parse(version);
-  if (!parsed || parsed.prerelease.length > 0 || parsed.build.length > 0) {
-    throw new Error(`Expected a stable SemVer version (got ${version})`);
-  }
+  const parsed = parseStable(version);
+  if (!parsed) throw new Error(`Expected a stable SemVer version (got ${version})`);
   return parsed;
 }
 
@@ -66,8 +73,7 @@ export function releaseProblems(version, root = '.') {
 
 if (import.meta.main) {
   const version = process.argv[2];
-  const parsed = version ? parse(version) : null;
-  if (!parsed || parsed.prerelease.length > 0 || parsed.build.length > 0) {
+  if (!parseStable(version)) {
     console.error(`Usage: release-prep.mjs <version>  (got: ${version ?? '<none>'})`);
     process.exit(1);
   }
