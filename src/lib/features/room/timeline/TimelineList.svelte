@@ -60,6 +60,7 @@
     unreadCountAfter,
     visibleAggregations,
     visibleTimelineItems,
+    withDateDividers,
     withReadMarkerBefore,
     type ReplyDirection,
   } from './timeline-format';
@@ -227,10 +228,12 @@
   let followingRead = $state(false);
   let eventItems = $derived(visibleTimelineItems(timeline.items, preferences, { readOnly }));
   let allItems = $derived(
-    mergeAggregations(eventItems, visibleAggregations(timeline.aggregations, preferences), {
-      start: timeline.backwardPagination === 'end',
-      end: timeline.mode.kind === 'live' || timeline.forwardPagination === 'end',
-    })
+    withDateDividers(
+      mergeAggregations(eventItems, visibleAggregations(timeline.aggregations, preferences), {
+        start: timeline.backwardPagination === 'end',
+        end: timeline.mode.kind === 'live' || timeline.forwardPagination === 'end',
+      })
+    )
   );
   let visibleItems = $derived(
     unread.firstEventId !== null

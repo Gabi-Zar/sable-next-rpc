@@ -38,6 +38,10 @@ function dayOf(date: Date): Day {
   return { year: part('year'), month: part('month'), day: part('day') };
 }
 
+export function dayKey(timestamp: number): string {
+  return dayFormatter().format(timestamp);
+}
+
 function dayBefore({ year, month, day }: Day): Day {
   const before = new Date(Date.UTC(year, month - 1, day - 1));
   return {

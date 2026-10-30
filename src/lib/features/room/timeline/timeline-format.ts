@@ -5,6 +5,7 @@ import type {
 } from '#src/generated/protocol';
 import { preferences } from '#lib/settings/preferences.svelte.js';
 import type { ReplyPreviewStyle, TimelinePreferences } from '#lib/settings/preferences.svelte.js';
+import { dayKey } from '#lib/ui/date-time.js';
 
 export { senderColor } from '#lib/ui/primitives/identity-color.js';
 
@@ -122,12 +123,7 @@ export function mergeAggregations(
   const merged: TimelineItemView[] = [];
   let next = 0;
   for (const item of items) {
-    const dateDivider = item.content.kind === 'date_divider';
-    const boundary = dateDivider ? new Date(item.timestamp).setHours(0, 0, 0, 0) : item.timestamp;
-    while (
-      next < pending.length &&
-      (dateDivider ? pending[next].timestamp < boundary : pending[next].timestamp <= boundary)
-    ) {
+    while (next < pending.length && pending[next].timestamp <= item.timestamp) {
       merged.push(pending[next]);
       next += 1;
     }
@@ -145,6 +141,7 @@ export function visibleTimelineItems(
   const kept: TimelineItemView[] = [];
   let lastEvent = -1;
   for (const item of items) {
+    if (item.content.kind === 'date_divider') continue;
     if (item.event_id) {
       if (shown.has(item.event_id)) continue;
       shown.add(item.event_id);
@@ -163,22 +160,39 @@ export function visibleTimelineItems(
   }
 
   const visible: TimelineItemView[] = [];
-  let hasEventBelow = false;
   let hasUnreadBelow = false;
   for (let index = kept.length - 1; index >= 0; index -= 1) {
     const item = kept[index];
-    if (item.content.kind === 'date_divider') {
-      if (!hasEventBelow) continue;
-      hasEventBelow = false;
-    } else if (item.content.kind === 'read_marker') {
+    if (item.content.kind === 'read_marker') {
       if (!hasUnreadBelow) continue;
-    } else if (!isAnnotation(item)) {
-      hasEventBelow = true;
-      if (!item.is_own && UNREAD_KINDS.has(item.content.kind)) hasUnreadBelow = true;
+    } else if (!isAnnotation(item) && !item.is_own && UNREAD_KINDS.has(item.content.kind)) {
+      hasUnreadBelow = true;
     }
     visible.push(item);
   }
   return visible.reverse();
+}
+
+export function withDateDividers(items: readonly TimelineItemView[]): TimelineItemView[] {
+  const dated: TimelineItemView[] = [];
+  let lastDay: string | null = null;
+  for (const item of items) {
+    if (item.event_id !== null || item.transaction_id !== null) {
+      const day = dayKey(item.timestamp);
+      if (day !== lastDay) {
+        dated.push(
+          virtualItem(
+            `date-divider:${day}`,
+            { kind: 'date_divider', timestamp: item.timestamp },
+            item.timestamp
+          )
+        );
+        lastDay = day;
+      }
+    }
+    dated.push(item);
+  }
+  return dated;
 }
 
 const UNREAD_KINDS = new Set<TimelineItemContentView['kind']>([
@@ -208,15 +222,13 @@ export function unreadCountAfter(items: readonly TimelineItemView[], index: numb
   return count;
 }
 
-export function withReadMarkerBefore(
-  items: readonly TimelineItemView[],
-  eventId: string
-): TimelineItemView[] {
-  const rest = items.filter((item) => item.content.kind !== 'read_marker');
-  const index = rest.findIndex((item) => item.event_id === eventId);
-  if (index < 0) return rest;
-  const marker = items.find((item) => item.content.kind === 'read_marker') ?? {
-    id: 'unread-marker',
+function virtualItem(
+  id: string,
+  content: TimelineItemContentView,
+  timestamp = 0
+): TimelineItemView {
+  return {
+    id,
     row: 'annotation',
     forwardable: false,
     redactable: false,
@@ -227,8 +239,8 @@ export function withReadMarkerBefore(
     sender: null,
     sender_name: null,
     sender_avatar: null,
-    timestamp: 0,
-    content: { kind: 'read_marker' },
+    timestamp,
+    content,
     in_reply_to: null,
     thread_root: null,
     thread_summary: null,
@@ -243,6 +255,18 @@ export function withReadMarkerBefore(
     forwarded: null,
     forum_title: null,
   };
+}
+
+export function withReadMarkerBefore(
+  items: readonly TimelineItemView[],
+  eventId: string
+): TimelineItemView[] {
+  const rest = items.filter((item) => item.content.kind !== 'read_marker');
+  const index = rest.findIndex((item) => item.event_id === eventId);
+  if (index < 0) return rest;
+  const marker =
+    items.find((item) => item.content.kind === 'read_marker') ??
+    virtualItem('unread-marker', { kind: 'read_marker' });
   return [...rest.slice(0, index), marker, ...rest.slice(index)];
 }
 

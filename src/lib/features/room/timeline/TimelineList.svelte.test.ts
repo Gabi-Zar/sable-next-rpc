@@ -157,8 +157,8 @@ function viewport(): HTMLDivElement {
   const element = document.querySelector('.viewport');
   if (!(element instanceof HTMLDivElement)) throw new Error('timeline viewport not found');
   Object.defineProperties(element, {
-    clientHeight: { configurable: true, value: 100 },
-    scrollHeight: { configurable: true, value: 100 },
+    clientHeight: { configurable: true, value: 150 },
+    scrollHeight: { configurable: true, value: 150 },
   });
   return element;
 }
@@ -555,7 +555,7 @@ test('a reset that leaves one message refills the viewport on its own', async ()
 
   const element = viewport();
   Object.defineProperties(element, {
-    clientHeight: { configurable: true, value: 100 },
+    clientHeight: { configurable: true, value: 150 },
     scrollHeight: { configurable: true, value: 900 },
   });
   await flushed();
@@ -1666,7 +1666,7 @@ test('follows an own echo appended while the reader is still near latest', async
   await flushed();
   await runAnimationFrames();
 
-  expect(document.querySelectorAll('.item')).toHaveLength(21);
+  expect(document.querySelectorAll('.item')).toHaveLength(22);
   expect(element.scrollHeight - element.clientHeight - element.scrollTop).toBe(0);
   expect(followingLive()).toBe(true);
 });
