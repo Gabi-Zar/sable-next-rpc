@@ -1,6 +1,8 @@
 import { base64ToString, stringToBase64 } from 'uint8array-extras';
+import * as v from 'valibot';
 
 import { isRecord } from '#lib/guards.js';
+import { appMime } from '#lib/mime.js';
 
 export const gifProviderIds = ['klipy', 'tenor', 'giphy'] as const;
 
@@ -37,7 +39,9 @@ export type GifProvider = {
 
 const resultLimit = 50;
 
-const mimetypeByExtension: Record<string, string> = { gif: 'image/gif', webp: 'image/webp' };
+const readString = v.parser(v.fallback(v.string(), ''));
+const readRecord = v.parser(v.fallback(v.custom<Record<string, unknown>>(isRecord), {}));
+const readId = v.parser(v.fallback(v.union([v.string(), v.number()]), ''));
 
 const sizeLimit = 3 * 1024 * 1024;
 
@@ -53,9 +57,12 @@ function urlExtension(url: URL): string {
   return dot === -1 ? '' : url.pathname.slice(dot + 1).toLowerCase();
 }
 
+const gifMimetypes = new Set(['image/gif', 'image/webp']);
+
 function mimetypeOf(mediaUrl: string): string {
   try {
-    return mimetypeByExtension[urlExtension(new URL(mediaUrl))] ?? 'image/gif';
+    const type = appMime.getType(new URL(mediaUrl).pathname);
+    return type !== null && gifMimetypes.has(type) ? type : 'image/gif';
   } catch {
     return 'image/gif';
   }
@@ -114,73 +121,59 @@ function toResult(
 }
 
 function klipyFormat(format: unknown): GifFile | undefined {
-  if (!isRecord(format) || !isRecord(format.gif)) return undefined;
-  const { gif } = format;
+  const gif = readRecord(readRecord(format).gif);
   return toFile(gif.url, gif.width, gif.height, gif.size);
 }
 
 function parseKlipy(payload: unknown): GifResult[] {
-  const outer = isRecord(payload) ? payload.data : undefined;
-  const results = isRecord(outer) ? outer.data : undefined;
+  const results = readRecord(readRecord(payload).data).data;
   if (!Array.isArray(results)) return [];
 
   return results.filter(isRecord).map((result) => {
-    const formats = isRecord(result.file) ? result.file : {};
+    const formats = readRecord(result.file);
     const preview = klipyFormat(formats.xs) ?? klipyFormat(formats.sm) ?? klipyFormat(formats.md);
     const fullRes = pickFullRes([klipyFormat(formats.hd), klipyFormat(formats.md)]) ?? preview;
-    const id =
-      typeof result.id === 'string' || typeof result.id === 'number' ? String(result.id) : '';
-
-    return toResult(id, typeof result.title === 'string' ? result.title : '', fullRes, preview);
+    return toResult(String(readId(result.id)), readString(result.title), fullRes, preview);
   });
 }
 
 function tenorFormat(formats: Record<string, unknown>, key: string): GifFile | undefined {
-  const format = formats[key];
-  if (!isRecord(format)) return undefined;
+  const format = readRecord(formats[key]);
   const dims = Array.isArray(format.dims) ? format.dims : [];
   return toFile(format.url, dims[0], dims[1], format.size);
 }
 
 function parseTenor(payload: unknown): GifResult[] {
-  const results = isRecord(payload) ? payload.results : undefined;
+  const results = readRecord(payload).results;
   if (!Array.isArray(results)) return [];
 
   return results.filter(isRecord).map((result) => {
-    const formats = isRecord(result.media_formats) ? result.media_formats : {};
+    const formats = readRecord(result.media_formats);
     const preview = tenorFormat(formats, 'tinygif') ?? tenorFormat(formats, 'nanogif');
     const fullRes =
       pickFullRes([tenorFormat(formats, 'gif'), tenorFormat(formats, 'mediumgif')]) ?? preview;
-    const title =
-      (typeof result.content_description === 'string' ? result.content_description : '') ||
-      (typeof result.title === 'string' ? result.title : '');
+    const title = readString(result.content_description) || readString(result.title);
 
-    return toResult(typeof result.id === 'string' ? result.id : '', title, fullRes, preview);
+    return toResult(readString(result.id), title, fullRes, preview);
   });
 }
 
 function giphyRendition(images: Record<string, unknown>, key: string): GifFile | undefined {
-  const rendition = images[key];
-  if (!isRecord(rendition)) return undefined;
+  const rendition = readRecord(images[key]);
   return toFile(rendition.url, rendition.width, rendition.height, rendition.size);
 }
 
 function parseGiphy(payload: unknown): GifResult[] {
-  const results = isRecord(payload) ? payload.data : undefined;
+  const results = readRecord(payload).data;
   if (!Array.isArray(results)) return [];
 
   return results.filter(isRecord).map((result) => {
-    const images = isRecord(result.images) ? result.images : {};
+    const images = readRecord(result.images);
     const preview = giphyRendition(images, 'fixed_width') ?? giphyRendition(images, 'preview_gif');
     const fullRes =
       giphyRendition(images, 'original') ?? giphyRendition(images, 'downsized') ?? preview;
 
-    return toResult(
-      typeof result.id === 'string' ? result.id : '',
-      typeof result.title === 'string' ? result.title : '',
-      fullRes,
-      preview
-    );
+    return toResult(readString(result.id), readString(result.title), fullRes, preview);
   });
 }
 
@@ -338,12 +331,8 @@ export function gifFromProxiedMxc(
   };
 }
 
-const extensions = Object.fromEntries(
-  Object.entries(mimetypeByExtension).map(([extension, mimetype]) => [mimetype, extension])
-);
-
 export function gifFilename(title: string, mimetype: string): string {
-  const ext = extensions[mimetype] ?? 'gif';
+  const ext = (gifMimetypes.has(mimetype) && appMime.getExtension(mimetype)) || 'gif';
   const stem = title.replace(/[\s/\\:*?"<>|]+/g, '-').replace(/^-+|-+$/g, '') || 'gif';
 
   return stem.endsWith(`.${ext}`) ? stem : `${stem}.${ext}`;

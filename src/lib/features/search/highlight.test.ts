@@ -29,6 +29,13 @@ test('a term full of regex metacharacters neither throws nor matches everything'
   expect(highlightSegments('a (b) c', ['.*+?'])).toEqual([{ text: 'a (b) c', match: false }]);
 });
 
+test('phrase metacharacters are matched literally', () => {
+  const segments = highlightSegments('read the c++ guide, not the ccc guide', ['c++ guide']);
+  expect(segments.filter((segment) => segment.match).map((segment) => segment.text)).toEqual([
+    'c++ guide',
+  ]);
+});
+
 test('a term that does not occur leaves the body whole', () => {
   expect(highlightSegments('nothing here', ['absent'])).toEqual([
     { text: 'nothing here', match: false },

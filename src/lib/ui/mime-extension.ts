@@ -1,19 +1,11 @@
-const EXTENSION_BY_SUBTYPE: Record<string, string> = {
-  quicktime: 'mov',
-  'x-matroska': 'mkv',
-};
+import { appMime } from '#lib/mime.js';
 
-export function mimeExtension(mime: string | null, filename = ''): string | null {
-  if (!mime) return null;
-  const slash = mime.indexOf('/');
-  if (slash === -1) return null;
-  const subtype = mime
-    .slice(slash + 1)
-    .split(';')[0]
-    .trim();
-  if (subtype.startsWith('vnd.')) {
-    const dot = filename.lastIndexOf('.');
-    if (dot !== -1 && dot < filename.length - 1) return filename.slice(dot + 1).toLowerCase();
-  }
-  return EXTENSION_BY_SUBTYPE[subtype] ?? (subtype || null);
+export function mimeExtension(type: string | null, filename = ''): string | null {
+  if (!type) return null;
+  const normalized = type.split(';')[0].trim().toLowerCase();
+  const extensions = appMime.getAllExtensions(normalized);
+  const dot = filename.lastIndexOf('.');
+  const existing = dot > 0 ? filename.slice(dot + 1).toLowerCase() : '';
+  if (existing && extensions?.has(existing)) return existing;
+  return appMime.getExtension(normalized);
 }

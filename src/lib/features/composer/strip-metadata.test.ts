@@ -1,3 +1,4 @@
+import { crc32 as checksum } from 'node:zlib';
 import { describe, expect, it } from 'vitest';
 
 import { stripBytes, stripMetadata } from './strip-metadata';
@@ -119,6 +120,9 @@ describe('stripBytes', () => {
     expect(text).toContain('eXIf');
     expect(text).not.toContain('GPS-SECRET');
     expect(out[out.indexOf(0x12) + 8]).toBe(6);
+    expect(new DataView(out.buffer).getUint32(out.length - 16)).toBe(
+      checksum(out.subarray(12, out.length - 16))
+    );
   });
 
   it('keeps only the orientation of a rotated WebP and flags it', () => {
@@ -281,7 +285,9 @@ describe('location scope', () => {
     const out = strip(png, 'location');
     expect(String.fromCharCode(...out)).toContain('Canon');
     expect(out).not.toContain(0x5a);
-    expect(out.slice(-12 - 4, -12)).not.toEqual(png.slice(-12 - 4, -12));
+    expect(new DataView(out.buffer).getUint32(out.length - 16)).toBe(
+      checksum(out.subarray(12, out.length - 16))
+    );
   });
 
   it('drops an XMP packet that names a location and keeps one that does not', () => {

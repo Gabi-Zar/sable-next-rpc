@@ -1,5 +1,8 @@
 import { isTauri } from '@tauri-apps/api/core';
 
+import { imageMime as sniffImageMime } from '#lib/media-signatures.js';
+import { appMime } from '#lib/mime.js';
+
 import { electronBridge } from './electron.js';
 import type { FileFilter } from './file-dialog-types.js';
 import { isNativeMobile } from './os.js';
@@ -37,7 +40,7 @@ export async function saveFile(
     const blob = await (await fetch(url)).blob();
     const bytes = new Uint8Array(await blob.arrayBuffer());
     const mime =
-      [mimeFromName(filename), blob.type, sniffImageMime(bytes)].find(
+      [mimeFromName(filename), blob.type, sniffImageMime(bytes) ?? ''].find(
         (candidate) => candidate !== '' && candidate !== 'application/octet-stream'
       ) ?? 'application/octet-stream';
     const name = withExtension(safeFileName(filename), mime);
@@ -131,7 +134,7 @@ export async function saveImageToPhotos(
     const blob = await (await fetch(url)).blob();
     const bytes = new Uint8Array(await blob.arrayBuffer());
     const imageMime =
-      [mime, blob.type, sniffImageMime(bytes)].find((candidate) =>
+      [mime, blob.type, sniffImageMime(bytes) ?? ''].find((candidate) =>
         candidate.startsWith('image/')
       ) ?? mime;
     const name = withExtension(safeFileName(filename), imageMime);
@@ -280,71 +283,23 @@ async function saveAndroidFile(
   }
 }
 
-const MIME_BY_EXTENSION: Record<string, string> = {
-  '3gp': 'video/3gpp',
-  aac: 'audio/aac',
-  amr: 'audio/amr',
-  apng: 'image/apng',
-  avif: 'image/avif',
-  flac: 'audio/flac',
-  gif: 'image/gif',
-  heic: 'image/heic',
-  heif: 'image/heif',
-  jpeg: 'image/jpeg',
-  jpg: 'image/jpeg',
-  json: 'application/json',
-  m4a: 'audio/mp4',
-  m4v: 'video/mp4',
-  mka: 'audio/x-matroska',
-  mkv: 'video/x-matroska',
-  mov: 'video/quicktime',
-  mp3: 'audio/mpeg',
-  mp4: 'video/mp4',
-  oga: 'audio/ogg',
-  ogg: 'audio/ogg',
-  ogv: 'video/ogg',
-  opus: 'audio/opus',
-  pdf: 'application/pdf',
-  png: 'image/png',
-  svg: 'image/svg+xml',
-  txt: 'text/plain',
-  wav: 'audio/wav',
-  weba: 'audio/webm',
-  webm: 'video/webm',
-  webp: 'image/webp',
-  wma: 'audio/x-ms-wma',
-  zip: 'application/zip',
-};
-
 export function fileNameFromPath(path: string, index: number): string {
   return path.split(/[\\/]/).pop() || `attachment-${String(index + 1)}`;
 }
 
 /** The native picker hands back a path, which carries no media type. */
-function sniffImageMime(bytes: Uint8Array): string {
-  const ascii = (start: number, end: number): string =>
-    String.fromCharCode(...bytes.subarray(start, end));
-  if (bytes[0] === 0x89 && ascii(1, 4) === 'PNG') return 'image/png';
-  if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return 'image/jpeg';
-  if (ascii(0, 4) === 'GIF8') return 'image/gif';
-  if (ascii(0, 4) === 'RIFF' && ascii(8, 12) === 'WEBP') return 'image/webp';
-  if (ascii(4, 8) === 'ftyp' && ascii(8, 12).startsWith('avi')) return 'image/avif';
-  return '';
-}
-
 function safeFileName(name: string): string {
   return name.replace(/[\\/:*?"<>|]/gu, '_').trim() || 'file';
 }
 
-function withExtension(filename: string, mime: string): string {
-  if (mimeFromName(filename) === mime) return filename;
-  const extension = Object.entries(MIME_BY_EXTENSION).find(([, type]) => type === mime)?.[0];
+function withExtension(filename: string, mimeType: string): string {
+  if (mimeFromName(filename) === mimeType) return filename;
+  const extension = appMime.getExtension(mimeType);
   return extension ? `${filename}.${extension}` : filename;
 }
 
 export function mimeFromName(name: string): string {
-  const extension = name.includes('.') ? name.split('.').pop()?.toLowerCase() : undefined;
-  return (extension && MIME_BY_EXTENSION[extension]) || 'application/octet-stream';
+  return (name.includes('.') ? appMime.getType(name) : null) ?? 'application/octet-stream';
 }
 
 const AMBIGUOUS_MIMES = new Set(['', 'application/octet-stream', 'application/ogg']);
@@ -464,21 +419,31 @@ async function pickIosFiles(accept: string, onFailure?: (error: unknown) => void
   return files.filter((file): file is File => file !== null);
 }
 
+const WILDCARD_EXTENSIONS: Record<string, string[]> = {
+  audio: ['mp3', 'm4a', 'aac', 'ogg', 'oga', 'opus', 'flac', 'wav', 'weba'],
+  image: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'apng', 'heic', 'heif', 'svg'],
+  video: ['mp4', 'm4v', 'mov', 'webm', 'mkv', 'ogv', '3gp'],
+};
+
 /** Maps an `accept` attribute onto the extension lists the native dialog wants. */
 export function filtersFor(accept: string): FileFilter[] | undefined {
   const wanted = accept
     .split(',')
     .map((entry) => entry.trim().toLowerCase())
     .filter(Boolean);
-  if (wanted.length === 0 || wanted.includes('*/*')) return undefined;
+  if (wanted.length === 0 || wanted.includes('*/*') || wanted.includes('*')) return undefined;
 
-  const extensions = Object.entries(MIME_BY_EXTENSION)
-    .filter(([, mime]) =>
-      wanted.some((entry) =>
-        entry.endsWith('/*') ? mime.startsWith(entry.slice(0, -1)) : entry === mime
-      )
-    )
-    .map(([extension]) => extension);
+  const extensions = new Set<string>();
+  for (const entry of wanted) {
+    if (entry.startsWith('.') && entry.length > 1) {
+      extensions.add(entry.slice(1));
+      continue;
+    }
+    const wildcard = entry.endsWith('/*') ? WILDCARD_EXTENSIONS[entry.slice(0, -2)] : undefined;
+    for (const extension of wildcard ?? appMime.getAllExtensions(entry) ?? []) {
+      extensions.add(extension);
+    }
+  }
 
-  return extensions.length > 0 ? [{ name: 'Supported', extensions }] : undefined;
+  return extensions.size > 0 ? [{ name: 'Supported', extensions: [...extensions] }] : undefined;
 }

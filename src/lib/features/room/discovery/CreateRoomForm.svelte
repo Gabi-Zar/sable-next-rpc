@@ -13,6 +13,7 @@
   import { useCoreClient } from '#lib/core/context.js';
   import { createRoom } from '#lib/core/api/rooms.js';
   import { i18n } from '#lib/i18n.js';
+  import { isUserId } from '#lib/guards.js';
   import type { CreateJoinRuleView, RoomKind, RoomVersionsView } from '#src/generated/protocol';
   import { roomPathParamFromId, useRoomList } from '#lib/rooms/room-list.svelte.js';
   import Alert from '#lib/ui/primitives/Alert.svelte';
@@ -38,7 +39,6 @@
   let { parentSpaceId = null, mode = 'all' }: Props = $props();
   const core = useCoreClient();
   const roomList = useRoomList();
-  const userIdPattern = /^@[^:\s]+:\S+$/;
 
   let name = $state('');
   let topic = $state('');
@@ -139,7 +139,7 @@
   function addInvite(): void {
     const candidate = inviteDraft.trim();
     if (candidate === '') return;
-    if (!userIdPattern.test(candidate)) {
+    if (!isUserId(candidate)) {
       inviteInvalid = true;
       return;
     }

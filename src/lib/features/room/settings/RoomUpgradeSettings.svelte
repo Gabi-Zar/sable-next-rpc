@@ -11,6 +11,7 @@
   import { useCoreClient } from '#lib/core/context.js';
   import { createRoom } from '#lib/core/api/rooms.js';
   import { i18n } from '#lib/i18n.js';
+  import { isUserId } from '#lib/guards.js';
   import { roomPathParamFromId } from '#lib/rooms/room-list.svelte.js';
   import Alert from '#lib/ui/primitives/Alert.svelte';
   import Button from '#lib/ui/primitives/Button.svelte';
@@ -42,7 +43,6 @@
 
   let { room, levels, ownPowerLevel, onClose }: Props = $props();
   const core = useCoreClient();
-  const userIdPattern = /^@[^:\s]+:\S+$/;
 
   let version = $state<string | null>(null);
   let predecessor = $state<string | null>(null);
@@ -166,7 +166,7 @@
   function addCreator(): void {
     const candidate = creatorDraft.trim();
     if (candidate === '') return;
-    if (!userIdPattern.test(candidate)) {
+    if (!isUserId(candidate)) {
       creatorInvalid = true;
       return;
     }

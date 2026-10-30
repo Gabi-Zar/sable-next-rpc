@@ -1,3 +1,5 @@
+import escapeStringRegexp from 'escape-string-regexp';
+
 export interface Segment {
   text: string;
   match: boolean;
@@ -33,7 +35,7 @@ function sharesStem(word: string, term: string): boolean {
 }
 
 function phraseRanges(body: string, phrase: string): Range[] {
-  const escaped = phrase.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const escaped = escapeStringRegexp(phrase.trim());
   if (escaped === '') return [];
 
   const pattern = new RegExp(escaped.replace(/\s+/g, '\\s+'), 'giu');

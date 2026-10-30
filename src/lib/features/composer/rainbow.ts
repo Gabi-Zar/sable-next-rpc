@@ -1,3 +1,5 @@
+import { convertHslToRgb, serializeHex } from 'culori/fn';
+
 import { graphemes } from '#lib/graphemes.js';
 
 const ESCAPES: Record<string, string> = {
@@ -11,19 +13,6 @@ export function escapeHtml(text: string): string {
   return text.replace(/[&<>"]/g, (char) => ESCAPES[char] ?? char);
 }
 
-function hslToHex(hue: number, saturation: number, lightness: number): string {
-  const chroma = saturation * Math.min(lightness, 1 - lightness);
-  const channel = (offset: number): string => {
-    const k = (offset + hue * 12) % 12;
-    const value = lightness - chroma * Math.max(Math.min(k - 3, 9 - k, 1), -1);
-    return Math.round(255 * value)
-      .toString(16)
-      .padStart(2, '0');
-  };
-
-  return `#${channel(0)}${channel(8)}${channel(4)}`;
-}
-
 function splitGraphemes(text: string): string[] {
   return Array.from(graphemes.segment(text), ({ segment }) => segment);
 }
@@ -33,7 +22,7 @@ function visible(char: string): boolean {
 }
 
 function colourOf(index: number, total: number): string {
-  return hslToHex((index / total) * (5 / 6), 1, 0.5);
+  return serializeHex(convertHslToRgb({ h: (index / total) * 300, s: 1, l: 0.5 }));
 }
 
 export function rainbowHtml(text: string): string {

@@ -1,3 +1,13 @@
+import {
+  convertOklabToRgb,
+  convertRgbToOklab,
+  parseHex as parseColorHex,
+  serializeHex,
+  wcagContrast,
+} from 'culori/fn';
+import type { Rgb as ColorRgb } from 'culori';
+
+import '#lib/culori.js';
 import { preferences, type NameColorCorrection } from '#lib/settings/preferences.svelte.js';
 
 type Rgb = [number, number, number];
@@ -12,69 +22,37 @@ const WEAK_TEXT_RATIO = 3;
 
 const adjusted = new Map<string, string>();
 
+function colorRgb([r, g, b]: Rgb): ColorRgb {
+  return { mode: 'rgb', r, g, b };
+}
+
 function parseHex(hex: string): Rgb | null {
   const match = /^#?([\da-f]{3}|[\da-f]{6})$/i.exec(hex.trim());
   if (!match) return null;
-  const digits = match[1].length === 3 ? match[1].replaceAll(/./g, '$&$&') : match[1];
-  return [0, 2, 4].map(
-    (offset) => Number.parseInt(digits.slice(offset, offset + 2), 16) / 255
-  ) as Rgb;
+  const color = parseColorHex(`#${match[1]}`);
+  return color ? [color.r, color.g, color.b] : null;
 }
 
 function toHex(rgb: Rgb): string {
-  return `#${rgb
-    .map((channel) =>
-      Math.round(Math.min(1, Math.max(0, channel)) * 255)
-        .toString(16)
-        .padStart(2, '0')
-    )
-    .join('')}`;
+  return serializeHex(colorRgb(rgb));
 }
 
 function rounded(rgb: Rgb): Rgb {
   return rgb.map((channel) => Math.round(Math.min(1, Math.max(0, channel)) * 255) / 255) as Rgb;
 }
 
-function toLinear(channel: number): number {
-  return channel <= 0.040_45 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
-}
-
-function fromLinear(channel: number): number {
-  return channel <= 0.003_130_8 ? channel * 12.92 : 1.055 * channel ** (1 / 2.4) - 0.055;
-}
-
-function luminance(rgb: Rgb): number {
-  const [red, green, blue] = rgb.map(toLinear);
-  return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
-}
-
 function ratio(first: Rgb, second: Rgb): number {
-  const a = luminance(first);
-  const b = luminance(second);
-  return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+  return wcagContrast(colorRgb(first), colorRgb(second));
 }
 
 function toOklab(rgb: Rgb): Lab {
-  const [red, green, blue] = rgb.map(toLinear);
-  const l = Math.cbrt(0.412_221_470_8 * red + 0.536_332_536_3 * green + 0.051_445_992_9 * blue);
-  const m = Math.cbrt(0.211_903_498_2 * red + 0.680_699_545_1 * green + 0.107_396_956_6 * blue);
-  const s = Math.cbrt(0.088_302_461_9 * red + 0.281_718_837_6 * green + 0.629_978_700_5 * blue);
-  return [
-    0.210_454_255_3 * l + 0.793_617_785 * m - 0.004_072_046_8 * s,
-    1.977_998_495_1 * l - 2.428_592_205 * m + 0.450_593_709_9 * s,
-    0.025_904_037_1 * l + 0.782_771_766_2 * m - 0.808_675_766 * s,
-  ];
+  const { l, a, b } = convertRgbToOklab(colorRgb(rgb));
+  return [l, a, b];
 }
 
-function fromOklab([lightness, a, b]: Lab): Rgb {
-  const l = (lightness + 0.396_337_777_4 * a + 0.215_803_757_3 * b) ** 3;
-  const m = (lightness - 0.105_561_345_8 * a - 0.063_854_172_8 * b) ** 3;
-  const s = (lightness - 0.089_484_177_5 * a - 1.291_485_548 * b) ** 3;
-  return [
-    4.076_741_662_1 * l - 3.307_711_591_3 * m + 0.230_969_929_2 * s,
-    -1.268_438_004_6 * l + 2.609_757_401_1 * m - 0.341_319_396_5 * s,
-    -0.004_196_086_3 * l - 0.703_418_614_7 * m + 1.707_614_701 * s,
-  ].map(fromLinear) as Rgb;
+function fromOklab([l, a, b]: Lab): Rgb {
+  const { r, g, b: blue } = convertOklabToRgb({ l, a, b });
+  return [r, g, blue];
 }
 
 function inGamut(rgb: Rgb): boolean {

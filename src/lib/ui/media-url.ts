@@ -2,6 +2,7 @@ import QuickLRU from 'quick-lru';
 
 import { CoreError } from '#src/transport';
 import { mediaFailureHold } from '#lib/ui/media-retry.js';
+import { imageMime, mediaMime } from '#lib/media-signatures.js';
 import type { CoreClient } from '#lib/core/client.svelte.js';
 import type { CoreMedia } from '#lib/core/media.svelte.js';
 
@@ -56,23 +57,7 @@ function cacheKey(
   return `${accountId ?? ''}:${source}:${String(width)}:${String(height)}`;
 }
 
-function startsWith(bytes: Uint8Array, signature: number[], offset = 0): boolean {
-  return signature.every((byte, index) => bytes[offset + index] === byte);
-}
-
-export function imageMime(bytes: Uint8Array): string | undefined {
-  if (startsWith(bytes, [0x89, 0x50, 0x4e, 0x47])) return 'image/png';
-  if (startsWith(bytes, [0xff, 0xd8, 0xff])) return 'image/jpeg';
-  if (startsWith(bytes, [0x47, 0x49, 0x46])) return 'image/gif';
-  if (startsWith(bytes, [0x52, 0x49, 0x46, 0x46]) && startsWith(bytes, [0x57, 0x45, 0x42, 0x50], 8))
-    return 'image/webp';
-
-  const head = new TextDecoder().decode(bytes.subarray(0, 256)).trimStart().toLowerCase();
-  if (head.startsWith('<svg') || (head.startsWith('<?xml') && head.includes('<svg'))) {
-    return 'image/svg+xml';
-  }
-  return undefined;
-}
+export { imageMime } from '#lib/media-signatures.js';
 
 export function isAnimatedImage(bytes: Uint8Array): boolean {
   const type = imageMime(bytes);
@@ -85,17 +70,9 @@ export function isAnimatedImage(bytes: Uint8Array): boolean {
   return type === 'image/webp' && head.startsWith('VP8X', 12) && (bytes[20] & 0x02) !== 0;
 }
 
-function videoMime(bytes: Uint8Array): string | undefined {
-  if (startsWith(bytes, [0x1a, 0x45, 0xdf, 0xa3])) return 'video/webm';
-  if (!startsWith(bytes, [0x66, 0x74, 0x79, 0x70], 4)) return undefined;
-  const brand = String.fromCharCode(...bytes.subarray(8, 12));
-  if (['avif', 'avis', 'heic', 'heix', 'mif1', 'msf1'].includes(brand)) return undefined;
-  return brand === 'qt  ' ? 'video/quicktime' : 'video/mp4';
-}
-
 function blobType(mime: string | null | undefined, bytes: Uint8Array): string {
   if (mime && mime !== 'application/octet-stream') return mime;
-  return imageMime(bytes) ?? videoMime(bytes) ?? '';
+  return mediaMime(bytes) ?? '';
 }
 
 function measure(key: string, type: string, blob: Blob): Promise<void> | null {

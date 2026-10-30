@@ -1,5 +1,11 @@
 import type { Attachment } from 'svelte/attachments';
 import { on } from 'svelte/events';
+import {
+  draggable,
+  dropTargetForElements,
+  type ElementDropTargetEventBasePayload,
+} from '@atlaskit/pragmatic-drag-and-drop/adapter/element-adapter';
+import { autoScrollForElements } from '@atlaskit/pragmatic-drag-and-drop-auto-scroll/element';
 
 import type { DropInstruction } from '#src/generated/protocol';
 
@@ -9,15 +15,6 @@ export type DropEdge = 'above' | 'below';
 export type { DropInstruction };
 
 const INTO_BAND = 0.3;
-
-function listen(...unsubscribers: (() => void)[]): () => void {
-  return () => {
-    for (const unsubscribe of unsubscribers) unsubscribe();
-  };
-}
-
-const SCROLL_EDGE_PX = 48;
-const SCROLL_STEP_PX = 12;
 
 export type DropState<T> = { item: T; instruction: DropInstruction };
 
@@ -51,157 +48,98 @@ export interface DragList<T> {
 }
 
 export function createDragList<T>(equals: (left: T, right: T) => boolean): DragList<T> {
-  let dragged: T | null = null;
-  let hovered: T | null = null;
-  let stopDocumentEnd: (() => void) | null = null;
-  let finishDrag: (() => void) | null = null;
+  const owner = Symbol('drag-list');
+  let activeSource: HTMLElement | null = null;
+  let hovered: HTMLElement | null = null;
+  const belongs = (data: Record<string, unknown>): boolean =>
+    data.owner === owner && data.available === true;
 
   return {
     draggable(item, onDragging) {
       return (node) => {
-        const start = (event: DragEvent): void => {
-          dragged = item;
-          stopDocumentEnd?.();
-          stopDocumentEnd = listen(
-            on(document, 'dragend', end, { capture: true }),
-            on(document, 'pointermove', resumed, { capture: true })
-          );
-          finishDrag = end;
-          onDragging(item);
-          event.dataTransfer?.setData('text/plain', '');
-          event.dataTransfer?.setData(REORDER_DRAG_TYPE, '');
-          if (event.dataTransfer !== null) event.dataTransfer.effectAllowed = 'move';
-        };
-        const resumed = (event: Event): void => {
-          if (event instanceof PointerEvent && event.buttons !== 0) return;
-          end();
-        };
-        const end = (): void => {
-          if (dragged === null || !equals(dragged, item)) return;
-
-          stopDocumentEnd?.();
-          stopDocumentEnd = null;
-          finishDrag = null;
-          dragged = null;
-          hovered = null;
+        const data = { owner, item, available: true };
+        const stopMoveEffect = on(node, 'dragstart', (event) => {
+          if (event.dataTransfer) event.dataTransfer.effectAllowed = 'move';
+        });
+        const finish = (): void => {
+          if (activeSource !== node) return;
+          activeSource = null;
           onDragging(null);
         };
-
-        node.draggable = true;
-        const stopListening = listen(on(node, 'dragstart', start), on(node, 'dragend', end));
-
+        const release = draggable({
+          element: node,
+          getInitialData: () => data,
+          getInitialDataForExternal: () => ({ 'text/plain': '', [REORDER_DRAG_TYPE]: '' }),
+          onGenerateDragPreview: () => {
+            activeSource = node;
+            onDragging(item);
+          },
+          onDrop: finish,
+        });
         return () => {
-          node.draggable = false;
-          stopListening();
-          if (dragged !== null && equals(dragged, item)) end();
+          data.available = false;
+          stopMoveEffect();
+          release();
+          finish();
         };
       };
     },
 
     dropTarget(item, { allowInto = false, axis = 'vertical', accepts, onState, onDrop }) {
       return (node) => {
-        const instructionAt = (event: DragEvent): DropInstruction => {
-          const box = node.getBoundingClientRect();
-          if (axis === 'horizontal') {
-            return dropInstructionAt(event.clientX - box.left, box.width, allowInto);
-          }
-          return dropInstructionAt(event.clientY - box.top, box.height, allowInto);
+        const clear = (): void => {
+          if (hovered !== node) return;
+          hovered = null;
+          onState(null);
         };
-
-        const over = (event: DragEvent): void => {
-          if (dragged === null || accepts?.(dragged) === false) return;
-
-          event.preventDefault();
-          if (equals(dragged, item)) {
-            event.stopPropagation();
+        const instruction = ({ location }: ElementDropTargetEventBasePayload): DropInstruction => {
+          const box = node.getBoundingClientRect();
+          const input = location.current.input;
+          return axis === 'horizontal'
+            ? dropInstructionAt(input.clientX - box.left, box.width, allowInto)
+            : dropInstructionAt(input.clientY - box.top, box.height, allowInto);
+        };
+        const nearest = ({ location }: ElementDropTargetEventBasePayload): boolean =>
+          location.current.dropTargets[0]?.element === node;
+        const update = (payload: ElementDropTargetEventBasePayload): void => {
+          if (!nearest(payload)) return;
+          const source = payload.source.data.item as T;
+          if (equals(source, item)) {
+            clear();
             return;
           }
-          event.stopPropagation();
-          if (event.dataTransfer !== null) event.dataTransfer.dropEffect = 'move';
-
-          hovered = item;
-          onState({ item, instruction: instructionAt(event) });
+          hovered = node;
+          onState({ item, instruction: instruction(payload) });
         };
-
-        const leave = (): void => {
-          if (hovered !== null && !equals(hovered, item)) return;
-
-          hovered = null;
-          onState(null);
+        const release = dropTargetForElements({
+          element: node,
+          canDrop: ({ source }) =>
+            belongs(source.data) && (accepts?.(source.data.item as T) ?? true),
+          getDropEffect: () => 'move',
+          onDragEnter: update,
+          onDrag: update,
+          onDragLeave: clear,
+          onDrop: (payload) => {
+            if (!nearest(payload) || !belongs(payload.source.data)) return;
+            clear();
+            const source = payload.source.data.item as T;
+            if (!equals(source, item)) onDrop(source, item, instruction(payload));
+          },
+        });
+        return () => {
+          release();
+          clear();
         };
-
-        const drop = (event: DragEvent): void => {
-          const source = dragged;
-          if (source === null || accepts?.(source) === false) return;
-
-          event.preventDefault();
-          event.stopPropagation();
-          hovered = null;
-          onState(null);
-          if (!equals(source, item)) onDrop(source, item, instructionAt(event));
-          finishDrag?.();
-        };
-
-        return listen(
-          on(node, 'dragenter', over),
-          on(node, 'dragover', over),
-          on(node, 'dragleave', leave),
-          on(node, 'drop', drop)
-        );
       };
     },
 
     autoScroll() {
-      return (node) => {
-        let frame: number | null = null;
-        let pointerY: number | null = null;
-
-        const step = (): void => {
-          frame = null;
-          if (dragged === null || pointerY === null) return;
-
-          const box = node.getBoundingClientRect();
-          if (pointerY - box.top < SCROLL_EDGE_PX) {
-            node.scrollTop -= SCROLL_STEP_PX;
-          } else if (box.bottom - pointerY < SCROLL_EDGE_PX) {
-            node.scrollTop += SCROLL_STEP_PX;
-          }
-
-          frame = requestAnimationFrame(step);
-        };
-
-        const track = (event: DragEvent): void => {
-          if (dragged === null) return;
-
-          pointerY = event.clientY;
-          frame ??= requestAnimationFrame(step);
-        };
-
-        const stop = (): void => {
-          pointerY = null;
-          if (frame !== null) cancelAnimationFrame(frame);
-          frame = null;
-        };
-
-        const left = (event: DragEvent): void => {
-          const entering = event.relatedTarget;
-          if (entering instanceof Node && node.contains(entering)) return;
-
-          stop();
-        };
-
-        const stopListening = listen(
-          on(node, 'dragover', track, { capture: true }),
-          on(node, 'dragleave', left, { capture: true }),
-          on(node, 'drop', stop, { capture: true }),
-          on(document, 'dragend', stop)
-        );
-
-        return () => {
-          stop();
-          stopListening();
-        };
-      };
+      return (node) =>
+        autoScrollForElements({
+          element: node,
+          canScroll: ({ source }) => belongs(source.data),
+          getAllowedAxis: () => 'vertical',
+        });
     },
   };
 }

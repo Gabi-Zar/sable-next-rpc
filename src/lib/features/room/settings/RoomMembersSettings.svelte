@@ -11,6 +11,7 @@
 
   import { useCoreClient } from '#lib/core/context.js';
   import { i18n } from '#lib/i18n.js';
+  import { isUserId } from '#lib/guards.js';
   import { preferences, setPreference } from '#lib/settings/preferences.svelte.js';
   import ActionMenu from '#lib/ui/primitives/ActionMenu.svelte';
   import ActionMenuItem from '#lib/ui/primitives/ActionMenuItem.svelte';
@@ -66,7 +67,6 @@
     { level: -1, label: 'timeline.powerLevelMuted' },
   ];
 
-  const userIdPattern = /^@[^:\s]+:\S+$/;
   const noMembers: MemberView[] = [];
 
   let tab = $state<MembershipFilter>('join');
@@ -102,8 +102,7 @@
   let inviteQuery = $derived(canInviteInline ? search.trim() : '');
   let candidates = $derived.by(() => {
     const typed =
-      userIdPattern.test(inviteQuery) &&
-      !directory.results.some((entry) => entry.user_id === inviteQuery)
+      isUserId(inviteQuery) && !directory.results.some((entry) => entry.user_id === inviteQuery)
         ? [{ user_id: inviteQuery, display_name: null, avatar_url: null }]
         : [];
     return [...typed, ...directory.results].filter(

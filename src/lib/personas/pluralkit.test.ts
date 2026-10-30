@@ -1,9 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { PersonaView } from '#src/generated/protocol';
 
 import {
   matchImported,
+  fetchPluralkitMembers,
   parsePluralkitExport,
   personaFromPluralkit,
   systemIdFromInput,
@@ -23,6 +24,8 @@ const member = {
     { prefix: null, suffix: null },
   ],
 };
+
+afterEach(() => vi.unstubAllGlobals());
 
 describe('systemIdFromInput', () => {
   it('takes a bare id', () => {
@@ -48,6 +51,27 @@ describe('parsePluralkitExport', () => {
     expect(parsePluralkitExport(JSON.stringify([member]))).toEqual([member]);
   });
 
+  it('keeps additional member and proxy-tag fields', () => {
+    const extended = {
+      ...member,
+      created: '2026-01-01',
+      proxy_tags: [{ prefix: 'k:', custom: true }],
+    };
+    expect(parsePluralkitExport(JSON.stringify([extended]))).toEqual([extended]);
+  });
+
+  it.each([
+    { display_name: 42 },
+    { pronouns: ['they/them'] },
+    { proxy_tags: {} },
+    { proxy_tags: [null] },
+    { proxy_tags: [{ prefix: 42 }] },
+  ])('rejects malformed optional fields before persona conversion: %j', (fields) => {
+    expect(() => parsePluralkitExport(JSON.stringify([{ ...member, ...fields }]))).toThrow(
+      'not a PluralKit member list'
+    );
+  });
+
   it.each([
     ['malformed JSON', '{'],
     ['an object without members', JSON.stringify({ id: 'sysid' })],
@@ -57,6 +81,27 @@ describe('parsePluralkitExport', () => {
     ['a string', JSON.stringify('kris')],
   ])('rejects %s', (_, text) => {
     expect(() => parsePluralkitExport(text)).toThrow();
+  });
+});
+
+describe('fetchPluralkitMembers', () => {
+  it('validates fetched members and keeps authenticated requests', async () => {
+    const fetch = vi.fn().mockResolvedValue(Response.json([member]));
+    vi.stubGlobal('fetch', fetch);
+    expect(await fetchPluralkitMembers('sysid', 'token')).toEqual([member]);
+    expect(fetch).toHaveBeenCalledWith('https://api.pluralkit.me/v2/systems/sysid/members', {
+      headers: { Authorization: 'token' },
+    });
+  });
+
+  it('rejects malformed API members before import', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(Response.json([{ ...member, proxy_tags: [{ suffix: [] }] }]))
+    );
+    await expect(fetchPluralkitMembers('sysid')).rejects.toThrow(
+      'pluralkit returned an invalid member list'
+    );
   });
 });
 

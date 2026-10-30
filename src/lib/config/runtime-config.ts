@@ -1,17 +1,11 @@
 import { asset } from '$app/paths';
+import * as v from 'valibot';
 
-import { gifProviderIds, type GifProviderId, type GifsConfig } from '#lib/gif/providers.js';
+import { gifProviderIds } from '#lib/gif/providers.js';
+import { isRecord } from '#lib/guards.js';
 
 /** Key names follow v1's `config.json` so a deployment can carry its file over. */
-export type PushDetails = {
-  pushNotifyUrl: string;
-  vapidPublicKey: string;
-  webPushAppID: string;
-  nativePushAppID: string | null;
-  iosPushAppID?: string | null;
-  unifiedPushEmbeddedServerUrl?: string | null;
-  unifiedPushGatewayUrl?: string | null;
-};
+export type PushDetails = v.InferOutput<typeof PushSchema>;
 
 export type HomeserversConfig = {
   list: string[];
@@ -19,39 +13,10 @@ export type HomeserversConfig = {
   allowCustom: boolean;
 };
 
-export type CallsConfig = {
-  livekitServiceUrl: string | null;
-};
-
-export type SupporterConfig = {
-  serviceUrl: string;
-  keys: Readonly<Record<string, string>>;
-};
-
-export type EmbedsConfig = {
-  serviceUrl: string | null;
-};
-
-export type RuntimeConfig = {
-  push: PushDetails | null;
-  embeds: EmbedsConfig;
-  supporter: SupporterConfig | null;
-  gifs: GifsConfig;
-  homeservers: HomeserversConfig;
-  exploreServers: string[];
-  calls: CallsConfig;
-  disableAccountSwitcher: boolean;
-  settingsDefaults: Record<string, unknown>;
-  hideUsernamePasswordFields: boolean;
-};
-
-const NO_GIFS: GifsConfig = {
-  provider: null,
-  proxyUrl: null,
-  klipyApiKey: null,
-  tenorApiKey: null,
-  giphyApiKey: null,
-};
+export type CallsConfig = v.InferOutput<typeof CallsSchema>;
+export type SupporterConfig = v.InferOutput<typeof SupporterSchema>;
+export type EmbedsConfig = v.InferOutput<typeof EmbedsSchema>;
+export type RuntimeConfig = v.InferOutput<typeof RuntimeSchema>;
 
 export const BUILT_IN_HOMESERVERS: HomeserversConfig = {
   list: ['matrix.org', 'mozilla.org', 'unredacted.org', 'sable.moe', 'kendama.moe', 'hopium.club'],
@@ -59,121 +24,105 @@ export const BUILT_IN_HOMESERVERS: HomeserversConfig = {
   allowCustom: true,
 };
 
-const NO_CALLS: CallsConfig = { livekitServiceUrl: null };
-
-const NO_EMBEDS: EmbedsConfig = { serviceUrl: null };
-
-const EMPTY: RuntimeConfig = {
-  push: null,
-  embeds: NO_EMBEDS,
-  supporter: null,
-  gifs: NO_GIFS,
-  homeservers: BUILT_IN_HOMESERVERS,
-  exploreServers: [],
-  calls: NO_CALLS,
-  disableAccountSwitcher: false,
-  settingsDefaults: {},
-  hideUsernamePasswordFields: false,
-};
-
-function text(value: unknown): string | null {
-  if (typeof value !== 'string') return null;
-  const trimmed = value.trim();
-  return trimmed === '' ? null : trimmed;
-}
+const NonBlankText = v.pipe(v.string(), v.trim(), v.minLength(1));
+const Text = v.fallback(v.nullable(NonBlankText), null);
+const RecordValue = v.custom<Record<string, unknown>>(isRecord);
+const TextList = v.fallback(
+  v.pipe(
+    v.array(Text),
+    v.transform((values) => [...new Set(values.filter((value) => value !== null))])
+  ),
+  []
+);
+const HttpService = v.pipe(
+  NonBlankText,
+  v.transform((value) => value.replace(/\/+$/, '')),
+  v.regex(/^https?:\/\//)
+);
 
 /** The three values a subscription needs are read as one unit; see
     `hasCompleteOverride` for why a partial set is worse than none. */
-function parsePush(raw: unknown): PushDetails | null {
-  if (typeof raw !== 'object' || raw === null) return null;
-
-  const source = raw as Record<string, unknown>;
-  const pushNotifyUrl = text(source.pushNotifyUrl);
-  const vapidPublicKey = text(source.vapidPublicKey);
-  const webPushAppID = text(source.webPushAppID);
-  if (!pushNotifyUrl || !vapidPublicKey || !webPushAppID) return null;
-
-  return {
-    pushNotifyUrl,
-    vapidPublicKey,
-    webPushAppID,
-    nativePushAppID: text(source.nativePushAppID),
-    ...(text(source.iosPushAppID) ? { iosPushAppID: text(source.iosPushAppID) } : {}),
-    ...(text(source.unifiedPushEmbeddedServerUrl)
-      ? { unifiedPushEmbeddedServerUrl: text(source.unifiedPushEmbeddedServerUrl) }
-      : {}),
-    ...(text(source.unifiedPushGatewayUrl)
-      ? { unifiedPushGatewayUrl: text(source.unifiedPushGatewayUrl) }
-      : {}),
-  };
-}
+const PushSchema = v.pipe(
+  v.object({
+    pushNotifyUrl: NonBlankText,
+    vapidPublicKey: NonBlankText,
+    webPushAppID: NonBlankText,
+    nativePushAppID: Text,
+    iosPushAppID: v.optional(Text),
+    unifiedPushEmbeddedServerUrl: v.optional(Text),
+    unifiedPushGatewayUrl: v.optional(Text),
+  }),
+  v.transform(({ iosPushAppID, unifiedPushEmbeddedServerUrl, unifiedPushGatewayUrl, ...push }) => ({
+    ...push,
+    ...(iosPushAppID ? { iosPushAppID } : {}),
+    ...(unifiedPushEmbeddedServerUrl ? { unifiedPushEmbeddedServerUrl } : {}),
+    ...(unifiedPushGatewayUrl ? { unifiedPushGatewayUrl } : {}),
+  }))
+);
 
 const ED25519_PUBLIC_KEY = /^[A-Za-z0-9+/_-]{43}$/;
-
-function parseSupporter(raw: unknown): SupporterConfig | null {
-  if (typeof raw !== 'object' || raw === null) return null;
-
-  const source = raw as Record<string, unknown>;
-  const serviceUrl = text(source.serviceUrl)?.replace(/\/+$/, '');
-  if (!serviceUrl || !/^https?:\/\//.test(serviceUrl)) return null;
-
-  const keys =
-    typeof source.keys === 'object' && source.keys !== null && !Array.isArray(source.keys)
-      ? Object.entries(source.keys).flatMap(([id, key]) => {
-          const value = text(key);
-          return value && ED25519_PUBLIC_KEY.test(value) ? [[id, value] as const] : [];
+const AwardKey = v.pipe(NonBlankText, v.regex(ED25519_PUBLIC_KEY));
+const SupporterSchema = v.object({
+  serviceUrl: HttpService,
+  keys: v.pipe(
+    RecordValue,
+    v.transform((keys): Record<string, string> =>
+      Object.fromEntries(
+        Object.entries(keys).flatMap(([id, raw]) => {
+          const key = v.safeParse(AwardKey, raw);
+          return key.success ? [[id, key.output]] : [];
         })
-      : [];
-  if (keys.length === 0) return null;
+      )
+    ),
+    v.minEntries(1),
+    v.readonly()
+  ),
+});
 
-  return { serviceUrl, keys: Object.fromEntries(keys) };
-}
-
-function parseGifs(raw: unknown): GifsConfig {
-  if (typeof raw !== 'object' || raw === null) return NO_GIFS;
-
-  const source = raw as Record<string, unknown>;
-  const named = text(source.provider);
-
-  return {
-    provider: gifProviderIds.includes(named as GifProviderId) ? (named as GifProviderId) : null,
-    proxyUrl: text(source.proxyUrl),
-    klipyApiKey: text(source.klipyApiKey),
-    tenorApiKey: text(source.tenorApiKey),
-    giphyApiKey: text(source.giphyApiKey),
-  };
-}
-
-function parseEmbeds(raw: unknown): EmbedsConfig {
-  if (typeof raw !== 'object' || raw === null) return NO_EMBEDS;
-
-  const serviceUrl = text((raw as Record<string, unknown>).serviceUrl)?.replace(/\/+$/, '');
-  return { serviceUrl: serviceUrl && /^https?:\/\//.test(serviceUrl) ? serviceUrl : null };
-}
-
-function parseCalls(raw: unknown): CallsConfig {
-  if (typeof raw !== 'object' || raw === null) return NO_CALLS;
-
-  return { livekitServiceUrl: text((raw as Record<string, unknown>).livekitServiceUrl) };
-}
-
-function parseHomeservers(raw: unknown, allowCustom: unknown): HomeserversConfig {
-  const list = Array.isArray(raw)
-    ? [...new Set(raw.map(text).filter((server): server is string => server !== null))]
-    : [];
-  const custom = typeof allowCustom === 'boolean' ? allowCustom : BUILT_IN_HOMESERVERS.allowCustom;
-
-  if (list.length === 0) return { ...BUILT_IN_HOMESERVERS, allowCustom: custom };
-  return { list, default: list[0], allowCustom: custom };
-}
-
-function parseExploreServers(raw: unknown): string[] {
-  if (typeof raw !== 'object' || raw === null) return [];
-  const servers = (raw as Record<string, unknown>).servers;
-  return Array.isArray(servers)
-    ? [...new Set(servers.map(text).filter((server): server is string => server !== null))]
-    : [];
-}
+const GifsSchema = v.object({
+  provider: v.fallback(v.nullable(v.pipe(NonBlankText, v.picklist(gifProviderIds))), null),
+  proxyUrl: Text,
+  klipyApiKey: Text,
+  tenorApiKey: Text,
+  giphyApiKey: Text,
+});
+const EmbedsSchema = v.object({ serviceUrl: v.fallback(v.nullable(HttpService), null) });
+const CallsSchema = v.object({ livekitServiceUrl: Text });
+const RuntimeSchema = v.pipe(
+  v.object({
+    pushNotificationDetails: v.fallback(v.nullable(PushSchema), null),
+    supporterAwards: v.fallback(v.nullable(SupporterSchema), null),
+    gifs: v.fallback(GifsSchema, v.parse(GifsSchema, {})),
+    embeds: v.fallback(EmbedsSchema, v.parse(EmbedsSchema, {})),
+    calls: v.fallback(CallsSchema, v.parse(CallsSchema, {})),
+    homeserverList: TextList,
+    allowCustomHomeservers: v.fallback(v.boolean(), BUILT_IN_HOMESERVERS.allowCustom),
+    defaultHomeserver: v.optional(v.unknown()),
+    featuredCommunities: v.fallback(v.object({ servers: TextList }), { servers: [] }),
+    disableAccountSwitcher: v.fallback(v.boolean(), false),
+    settingsDefaults: v.fallback(RecordValue, {}),
+    hideUsernamePasswordFields: v.fallback(v.boolean(), false),
+  }),
+  v.transform((source) => {
+    const list = source.homeserverList;
+    const homeservers = list.length
+      ? { list, default: list[0], allowCustom: source.allowCustomHomeservers }
+      : { ...BUILT_IN_HOMESERVERS, allowCustom: source.allowCustomHomeservers };
+    return {
+      push: source.pushNotificationDetails,
+      embeds: source.embeds,
+      supporter: source.supporterAwards,
+      gifs: source.gifs,
+      homeservers: withDefaultAt(homeservers, source.defaultHomeserver),
+      exploreServers: source.featuredCommunities.servers,
+      calls: source.calls,
+      disableAccountSwitcher: source.disableAccountSwitcher,
+      settingsDefaults: source.settingsDefaults,
+      hideUsernamePasswordFields: source.hideUsernamePasswordFields,
+    };
+  })
+);
+const EMPTY = v.parse(RuntimeSchema, {});
 
 function withDefaultAt(homeservers: HomeserversConfig, index: unknown): HomeserversConfig {
   if (index === null) return { ...homeservers, default: '' };
@@ -184,29 +133,8 @@ function withDefaultAt(homeservers: HomeserversConfig, index: unknown): Homeserv
 }
 
 export function parseRuntimeConfig(raw: unknown): RuntimeConfig {
-  if (typeof raw !== 'object' || raw === null) return EMPTY;
-
-  const source = raw as Record<string, unknown>;
-  return {
-    push: parsePush(source.pushNotificationDetails),
-    embeds: parseEmbeds(source.embeds),
-    supporter: parseSupporter(source.supporterAwards),
-    gifs: parseGifs(source.gifs),
-    homeservers: withDefaultAt(
-      parseHomeservers(source.homeserverList, source.allowCustomHomeservers),
-      source.defaultHomeserver
-    ),
-    exploreServers: parseExploreServers(source.featuredCommunities),
-    calls: parseCalls(source.calls),
-    disableAccountSwitcher: source.disableAccountSwitcher === true,
-    settingsDefaults:
-      typeof source.settingsDefaults === 'object' &&
-      source.settingsDefaults !== null &&
-      !Array.isArray(source.settingsDefaults)
-        ? (source.settingsDefaults as Record<string, unknown>)
-        : {},
-    hideUsernamePasswordFields: source.hideUsernamePasswordFields === true,
-  };
+  const result = v.safeParse(RuntimeSchema, raw);
+  return result.success ? result.output : EMPTY;
 }
 
 let loading: Promise<RuntimeConfig> | null = null;

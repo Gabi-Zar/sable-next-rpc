@@ -1,4 +1,5 @@
 import { isRecord } from '#lib/guards.js';
+import { mimeExtension } from '#lib/ui/mime-extension.js';
 import type { ImageUsageView } from '#src/generated/protocol';
 
 import {
@@ -18,16 +19,6 @@ export const ARCHIVE_VERSION = 1;
 
 const IMAGE_DIRECTORY = 'images';
 const AVATAR_DIRECTORY = 'avatars';
-const EXTENSION_BY_MIME: Record<string, string> = {
-  'image/apng': 'apng',
-  'image/avif': 'avif',
-  'image/gif': 'gif',
-  'image/jpeg': 'jpg',
-  'image/png': 'png',
-  'image/svg+xml': 'svg',
-  'image/webp': 'webp',
-};
-
 export interface ArchiveImage {
   file: string;
   body?: string;
@@ -46,7 +37,7 @@ export interface ArchivePack {
 }
 
 export function extensionFor(mime: string | null): string {
-  return EXTENSION_BY_MIME[(mime ?? '').toLowerCase()] ?? 'bin';
+  return mimeExtension(mime) ?? 'bin';
 }
 
 export function entryName(packIndex: number, shortcode: string, mime: string | null): string {

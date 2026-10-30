@@ -23,8 +23,17 @@ test('a dark surface asks for light icons', () => {
 });
 
 test('an unreadable color falls back to dark icons', () => {
-  expect(isLightColor('transparent')).toBe(true);
   expect(isLightColor('')).toBe(true);
+});
+
+test('a fully transparent color asks for light icons like black does', () => {
+  expect(isLightColor('rgba(0, 0, 0, 0)')).toBe(false);
+  expect(isLightColor('transparent')).toBe(false);
+});
+
+test('surface contrast accepts CSS colors beyond comma-separated RGB', () => {
+  expect(isLightColor('#fff')).toBe(true);
+  expect(isLightColor('rgb(0% 0% 0%)')).toBe(false);
 });
 
 test('repeated triggers sample on an interval, not once per trigger', async () => {
@@ -55,6 +64,7 @@ test('repeated triggers sample on an interval, not once per trigger', async () =
 test('a surface colour packs into an opaque java argb int', () => {
   expect(opaqueArgb('rgb(26, 28, 40)')).toBe(0xff1a1c28 | 0);
   expect(opaqueArgb('rgba(255, 255, 255, 0.5)')).toBe(-1);
+  expect(opaqueArgb('unknown')).toBeUndefined();
 });
 
 test('the surface under the navigation bar becomes the window background', async () => {

@@ -1,5 +1,6 @@
 import { isTauri } from '@tauri-apps/api/core';
 import { type as osType } from '@tauri-apps/plugin-os';
+import parseVersion from 'semver/functions/parse.js';
 
 import { SABLE_UPDATE_MANIFEST_URL } from '#lib/config/links.js';
 
@@ -33,22 +34,10 @@ export function updatePlatform(): 'desktop' | 'mobile' | 'web' {
   return os === 'android' || os === 'ios' ? 'mobile' : 'desktop';
 }
 
-function versionParts(value: string): number[] | null {
-  const parts = value.replace(/^v/u, '').split('-')[0].split('.');
-  if (parts.length > 3 || parts.some((part) => !/^\d+$/u.test(part))) return null;
-  return [Number(parts[0]), Number(parts[1] || 0), Number(parts[2] || 0)];
-}
-
 function isNewerVersion(candidate: string, current: string): boolean {
-  const candidateParts = versionParts(candidate);
-  const currentParts = versionParts(current);
-  if (!candidateParts || !currentParts) return false;
-  for (let index = 0; index < candidateParts.length; index += 1) {
-    const part = candidateParts[index];
-    const currentPart = currentParts[index] ?? 0;
-    if (part !== currentPart) return part > currentPart;
-  }
-  return false;
+  const latest = parseVersion(candidate);
+  const installed = parseVersion(current);
+  return latest !== null && installed !== null && latest.compare(installed) > 0;
 }
 
 export async function checkForMobileUpdate(): Promise<boolean> {

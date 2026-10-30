@@ -4,6 +4,7 @@
 
   import { useCoreClient } from '#lib/core/context.js';
   import { i18n } from '#lib/i18n.js';
+  import { isUserId } from '#lib/guards.js';
   import { profileOverrides } from '#lib/profile/profile-overrides.svelte.js';
   import Alert from '#lib/ui/primitives/Alert.svelte';
   import Avatar from '#lib/ui/primitives/Avatar.svelte';
@@ -24,7 +25,6 @@
 
   let { open, room, onOpenChange }: Props = $props();
   const core = useCoreClient();
-  const userIdPattern = /^@[^:\s]+:\S+$/;
 
   let draft = $state('');
   let invalid = $state(false);
@@ -64,7 +64,7 @@
   async function invite(candidate = draft.trim()): Promise<void> {
     const target = roomId;
     if (!target || inviting) return;
-    if (!userIdPattern.test(candidate)) {
+    if (!isUserId(candidate)) {
       invalid = true;
       return;
     }

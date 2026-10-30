@@ -60,3 +60,19 @@ test('mobile reports current when the manifest is not newer', async () => {
 
   await expect(checkForMobileUpdate()).resolves.toBe(false);
 });
+
+test.each([
+  ['1.2.3-nightly.9', '1.2.3-nightly.10', true],
+  ['1.2.3-nightly.10', '1.2.3', true],
+  ['1.2.3', '1.2.3-nightly.10', false],
+  ['1.2.3', 'v1.2.4', true],
+  ['1.2.3', '1.2', false],
+])('mobile compares %s with %s using SemVer precedence', async (current, latest, newer) => {
+  vi.stubEnv('VITE_APP_VERSION', current);
+  vi.stubGlobal(
+    'fetch',
+    vi.fn().mockResolvedValue({ ok: true, json: () => ({ version: latest }) })
+  );
+  const { checkForMobileUpdate } = await load();
+  await expect(checkForMobileUpdate()).resolves.toBe(newer);
+});

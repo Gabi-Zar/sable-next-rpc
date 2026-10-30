@@ -15,6 +15,8 @@ test.each([
   { mime: 'application/pdf', body: 'report.pdf' },
   { mime: 'application/zip', body: 'archive.zip' },
   { mime: 'image/png', body: 'shot.png' },
+  { mime: 'video/mp2t', body: 'stream' },
+  { mime: 'model/prc', body: 'model' },
   { mime: null, body: 'blob' },
 ])('does not preview $body sent as $mime', ({ mime, body }) => {
   expect(isTextAttachment(mime, body)).toBe(false);

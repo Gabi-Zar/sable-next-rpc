@@ -1,3 +1,5 @@
+import { convertHslToRgb, convertRgbToHsl } from 'culori/fn';
+
 const SAMPLE_SIZE = 32;
 const BUCKETS = 4096;
 const MIN_ALPHA = 16;
@@ -53,40 +55,13 @@ function bestBucket(counts: Uint16Array, totals: Uint32Array): number | null {
 }
 
 function darken(red: number, green: number, blue: number): string {
-  const max = Math.max(red, green, blue) / 255;
-  const min = Math.min(red, green, blue) / 255;
-  const lightness = (max + min) / 2;
-  const delta = max - min;
-  const saturation = delta === 0 ? 0 : delta / (1 - Math.abs(2 * lightness - 1));
-
-  let hue = 0;
-  if (delta > 0) {
-    const [rn, gn, bn] = [red / 255, green / 255, blue / 255];
-    if (max === rn) hue = ((gn - bn) / delta) % 6;
-    else if (max === gn) hue = (bn - rn) / delta + 2;
-    else hue = (rn - gn) / delta + 4;
-    hue = Math.round(hue * 60);
-    if (hue < 0) hue += 360;
-  }
-
-  const scaled = lightness * DARKEN;
-  const chroma = (1 - Math.abs(2 * scaled - 1)) * saturation;
-  const second = chroma * (1 - Math.abs(((hue / 60) % 2) - 1));
-  const base = scaled - chroma / 2;
-
-  const sextants: readonly [number, number, number][] = [
-    [chroma, second, 0],
-    [second, chroma, 0],
-    [0, chroma, second],
-    [0, second, chroma],
-    [second, 0, chroma],
-    [chroma, 0, second],
-  ];
-  const [r, g, b] = sextants[Math.min(5, Math.trunc(hue / 60))];
-
-  return `rgb(${Math.round((r + base) * 255)}, ${Math.round((g + base) * 255)}, ${Math.round(
-    (b + base) * 255
-  )})`;
+  const color = convertRgbToHsl({ r: red / 255, g: green / 255, b: blue / 255 });
+  const { r, g, b } = convertHslToRgb({
+    h: Math.round(color.h ?? 0),
+    s: color.s,
+    l: color.l * DARKEN,
+  });
+  return `rgb(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)})`;
 }
 
 export function plateColor(data: Uint8ClampedArray): string | null {

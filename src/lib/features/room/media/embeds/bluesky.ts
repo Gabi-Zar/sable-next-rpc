@@ -1,3 +1,5 @@
+import { AtUri } from '@atproto/syntax';
+
 const APPVIEWS = new Set(['bsky.app', 'witchsky.app', 'blacksky.community', 'reddwarf.app']);
 
 export type AtprotoRecord = {
@@ -81,13 +83,13 @@ export type ImageEmbed = {
 export type ApEmbed = ImageEmbed | VideoEmbed | RecordEmbed | RecordWithMediaEmbed;
 
 export function parseAtUri(uri: string): AtprotoRecord | null {
-  const [_a, _b, did, _collection, record] = uri.split('/');
-
-  return {
-    repo: did,
-    collection: 'app.bsky.feed.post',
-    key: record,
-  };
+  try {
+    const parsed = new AtUri(uri);
+    if (parsed.collection !== 'app.bsky.feed.post' || !parsed.rkey) return null;
+    return { repo: parsed.host, collection: 'app.bsky.feed.post', key: parsed.rkey };
+  } catch {
+    return null;
+  }
 }
 function recordId(url: URL): AtprotoRecord | null {
   if (!APPVIEWS.has(url.hostname)) return null;

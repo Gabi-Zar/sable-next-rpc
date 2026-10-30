@@ -1,3 +1,6 @@
+import { stringify } from 'safe-stable-stringify';
+import { base64ToUint8Array, uint8ArrayToHex } from 'uint8array-extras';
+
 import { isRecord } from '#lib/guards.js';
 
 export interface Award {
@@ -50,28 +53,11 @@ export function parseAwards(raw: string | null): Award[] {
 }
 
 export function canonicalJson(value: unknown): string {
-  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
-  if (isRecord(value)) {
-    const entries = Object.keys(value)
-      .slice()
-      .sort()
-      .map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`);
-    return `{${entries.join(',')}}`;
-  }
-  return JSON.stringify(value);
-}
-
-function hex(bytes: ArrayBuffer): string {
-  return Array.from(new Uint8Array(bytes), (byte) => byte.toString(16).padStart(2, '0')).join('');
-}
-
-function decodeBase64(value: string): Uint8Array<ArrayBuffer> {
-  const binary = atob(value.replaceAll('-', '+').replaceAll('_', '/'));
-  return Uint8Array.from(binary, (char) => char.charCodeAt(0));
+  return stringify(value) ?? '';
 }
 
 export async function userHash(userId: string): Promise<string> {
-  return hex(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(userId)));
+  return uint8ArrayToHex(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(userId)));
 }
 
 const importedKeys = new Map<string, Promise<CryptoKey>>();
@@ -79,7 +65,7 @@ const importedKeys = new Map<string, Promise<CryptoKey>>();
 function importKey(encoded: string): Promise<CryptoKey> {
   let key = importedKeys.get(encoded);
   if (!key) {
-    key = crypto.subtle.importKey('raw', decodeBase64(encoded), 'Ed25519', false, ['verify']);
+    key = crypto.subtle.importKey('raw', base64ToUint8Array(encoded), 'Ed25519', false, ['verify']);
     importedKeys.set(encoded, key);
   }
   return key;
@@ -98,7 +84,7 @@ async function signatureHolds(
         await crypto.subtle.verify(
           'Ed25519',
           await importKey(encoded),
-          decodeBase64(signature),
+          base64ToUint8Array(signature),
           data
         )
       ) {

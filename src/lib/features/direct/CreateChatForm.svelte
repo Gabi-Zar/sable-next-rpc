@@ -3,6 +3,7 @@
   import { resolve } from '$app/paths';
   import { useCoreClient } from '#lib/core/context.js';
   import { i18n } from '#lib/i18n.js';
+  import { isUserId } from '#lib/guards.js';
   import { parseJoinAddress } from '#lib/rooms/join-address.js';
   import { joinOrKnockPath, joinOrOfferKnock } from '#lib/rooms/join-or-knock.js';
   import { roomPathParamFromId } from '#lib/rooms/room-list.svelte.js';
@@ -13,7 +14,6 @@
   import TextInput from '#lib/ui/primitives/TextInput.svelte';
 
   const core = useCoreClient();
-  const userIdPattern = /^@[^:\s]+:\S+$/;
 
   let address = $state('');
   let encrypted = $state(true);
@@ -38,7 +38,7 @@
     event.preventDefault();
     if (opening) return;
 
-    invalid = !room && !userIdPattern.test(address.trim());
+    invalid = !room && !isUserId(address.trim());
     failed = false;
     if (invalid) return;
 

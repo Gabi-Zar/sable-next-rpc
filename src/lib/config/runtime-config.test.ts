@@ -32,6 +32,20 @@ test('a block missing any of the three a subscription needs registers nothing', 
   }
 });
 
+test('invalid optional push fields do not discard the required subscription details', () => {
+  expect(
+    parseRuntimeConfig({
+      pushNotificationDetails: {
+        ...details,
+        nativePushAppID: [],
+        iosPushAppID: 42,
+        unifiedPushEmbeddedServerUrl: ' ',
+        unifiedPushGatewayUrl: {},
+      },
+    }).push
+  ).toEqual({ ...details, nativePushAppID: null });
+});
+
 test('a file a deployment broke leaves push unregistered without throwing', () => {
   for (const raw of [null, undefined, 'not an object', 42, {}, { pushNotificationDetails: 'no' }]) {
     expect(parseRuntimeConfig(raw).push).toBeNull();

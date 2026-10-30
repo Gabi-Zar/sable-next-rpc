@@ -37,6 +37,8 @@ const files = new Map([
 test('an entry name carries the extension the pack declares', () => {
   expect(entryName(2, 'blob_wave', 'image/gif')).toBe('images/2-blob_wave.gif');
   expect(avatarEntryName(2, 'image/webp')).toBe('avatars/2.webp');
+  expect(entryName(2, 'photo', 'image/jpeg; charset=binary')).toBe('images/2-photo.jpg');
+  expect(entryName(2, 'legacy', 'image/bmp')).toBe('images/2-legacy.bmp');
 });
 
 test('an avatar never collides with an image called pack', () => {

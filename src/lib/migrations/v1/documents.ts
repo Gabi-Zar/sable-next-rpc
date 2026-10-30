@@ -1,3 +1,5 @@
+import { base64ToString } from 'uint8array-extras';
+
 import { parseFavorites } from '#lib/gif/favorites.svelte.js';
 import { V1_MIGRATION_ENABLED } from './config.js';
 import { convertV1SyncedSettings } from './preferences.js';
@@ -39,8 +41,7 @@ function legacyKlipyUrl(value: unknown): string | undefined {
       return undefined;
     const encoded = url.pathname.slice('/klipy_'.length);
     if (!/^[A-Za-z0-9_-]+$/.test(encoded)) return undefined;
-    const binary = atob(encoded.replaceAll('-', '+').replaceAll('_', '/'));
-    const path = new TextDecoder().decode(Uint8Array.from(binary, (char) => char.charCodeAt(0)));
+    const path = base64ToString(encoded);
     return `https://static.klipy.com/ii/${path}`;
   } catch {
     return undefined;

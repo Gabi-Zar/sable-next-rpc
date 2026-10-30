@@ -1,3 +1,6 @@
+import { openDB, wrap, type IDBPDatabase } from 'idb';
+import { base64ToUint8Array } from 'uint8array-extras';
+
 import { V1_MIGRATION_ENABLED, V1MigrationError } from './config.js';
 export { V1MigrationError } from './config.js';
 import {
@@ -109,24 +112,22 @@ export function openV1Database(name: string): Promise<IDBDatabase | null> {
   });
 }
 
-function readValue(database: IDBDatabase, store: string, key: IDBValidKey): Promise<unknown> {
-  return new Promise((resolve, reject) => {
-    const tx = database.transaction(store, 'readonly');
-    const request = tx.objectStore(store).get(key);
-    tx.oncomplete = () => {
-      resolve(request.result as unknown);
-    };
-    tx.onabort = tx.onerror = () => {
-      reject(tx.error ?? new Error('Could not read v1 crypto'));
-    };
-  });
+async function readValue(
+  database: IDBPDatabase,
+  store: string,
+  key: IDBValidKey
+): Promise<unknown> {
+  const tx = database.transaction(store, 'readonly');
+  const value: unknown = await tx.store.get(key);
+  await tx.done;
+  return value;
 }
 
 function decode(value: unknown): unknown {
   if (typeof value !== 'string') return value;
   try {
     if (value.startsWith('{')) return JSON.parse(value) as unknown;
-    const bytes = Uint8Array.from(atob(value), (char) => char.charCodeAt(0));
+    const bytes = base64ToUint8Array(value);
     return JSON.parse(new TextDecoder().decode(bytes)) as unknown;
   } catch {
     throw new Error('A v1 encryption record is invalid; its data has been kept');
@@ -140,7 +141,7 @@ async function findCrypto(session: V1Session): Promise<IDBDatabase | null> {
     let matched = false;
     try {
       if (!database.objectStoreNames.contains('core')) continue;
-      const account = decode(await readValue(database, 'core', 'account'));
+      const account = decode(await readValue(wrap(database), 'core', 'account'));
       if (
         record(account) &&
         account.user_id === session.userId &&
@@ -159,30 +160,26 @@ async function findCrypto(session: V1Session): Promise<IDBDatabase | null> {
   return null;
 }
 
-export function readV1Batch(
+export async function readV1Batch(
   database: IDBDatabase,
   store: string,
   after?: IDBValidKey
 ): Promise<LegacyEntry[]> {
-  return new Promise((resolve, reject) => {
-    const tx = database.transaction(store, 'readonly');
+  const tx = wrap(database).transaction(store, 'readonly');
+  const read = async (): Promise<LegacyEntry[]> => {
     const entries: LegacyEntry[] = [];
-    const request = tx
-      .objectStore(store)
-      .openCursor(after === undefined ? undefined : IDBKeyRange.lowerBound(after, true));
-    request.onsuccess = () => {
-      const cursor = request.result;
-      if (!cursor) return;
+    let cursor = await tx.store.openCursor(
+      after === undefined ? undefined : IDBKeyRange.lowerBound(after, true)
+    );
+    while (cursor) {
       entries.push({ key: cursor.key, value: cursor.value as unknown });
-      if (entries.length < BATCH_SIZE) cursor.continue();
-    };
-    tx.oncomplete = () => {
-      resolve(entries);
-    };
-    tx.onabort = tx.onerror = () => {
-      reject(tx.error ?? new Error('Could not read v1 crypto'));
-    };
-  });
+      if (entries.length >= BATCH_SIZE) break;
+      cursor = await cursor.continue();
+    }
+    return entries;
+  };
+  const [entries] = await Promise.all([read(), tx.done]);
+  return entries;
 }
 
 async function eachBatch(
@@ -203,16 +200,16 @@ async function eachBatch(
 }
 
 async function copyDatabase(source: IDBDatabase, name: string): Promise<void> {
-  const counts = await storeCounts(source);
+  const origin = wrap(source);
+  const counts = await storeCounts(origin);
   const account = source.objectStoreNames.contains('core')
-    ? JSON.stringify(await readValue(source, 'core', 'account'))
+    ? JSON.stringify(await readValue(origin, 'core', 'account'))
     : undefined;
-  const destination = await new Promise<IDBDatabase>((resolve, reject) => {
-    const request = indexedDB.open(name, source.version);
-    request.onupgradeneeded = () => {
+  const destination = await openDB(name, source.version, {
+    upgrade(database) {
       for (const name of Array.from(source.objectStoreNames)) {
         const original = source.transaction(name).objectStore(name);
-        const store = request.result.createObjectStore(name, {
+        const store = database.createObjectStore(name, {
           keyPath: original.keyPath,
           autoIncrement: original.autoIncrement,
         });
@@ -224,35 +221,22 @@ async function copyDatabase(source: IDBDatabase, name: string): Promise<void> {
           });
         }
       }
-    };
-    request.onsuccess = () => {
-      resolve(request.result);
-    };
-    request.onerror = () => {
-      reject(request.error ?? new Error('IndexedDB request failed'));
-    };
+    },
   });
   try {
-    await eachBatch(
-      source,
-      (name, entries) =>
-        new Promise<void>((resolve, reject) => {
-          const tx = destination.transaction(name, 'readwrite');
-          const store = tx.objectStore(name);
-          for (const entry of entries) {
-            if (store.keyPath === null) store.put(entry.value, entry.key);
-            else store.put(entry.value);
-          }
-          tx.oncomplete = () => {
-            resolve();
-          };
-          tx.onabort = tx.onerror = () => {
-            reject(tx.error ?? new Error('Could not copy v1 crypto'));
-          };
-        })
-    );
+    await eachBatch(source, async (name, entries) => {
+      const tx = destination.transaction(name, 'readwrite');
+      await Promise.all([
+        ...entries.map((entry) =>
+          tx.store.keyPath === null
+            ? tx.store.put(entry.value, entry.key)
+            : tx.store.put(entry.value)
+        ),
+        tx.done,
+      ]);
+    });
     const copied = await storeCounts(destination);
-    const current = await storeCounts(source);
+    const current = await storeCounts(origin);
     if (
       JSON.stringify(counts) !== JSON.stringify(copied) ||
       JSON.stringify(counts) !== JSON.stringify(current)
@@ -260,7 +244,7 @@ async function copyDatabase(source: IDBDatabase, name: string): Promise<void> {
       throw new Error('The v1 store changed during migration; close other Sable windows and retry');
     if (
       account !== undefined &&
-      (account !== JSON.stringify(await readValue(source, 'core', 'account')) ||
+      (account !== JSON.stringify(await readValue(origin, 'core', 'account')) ||
         account !== JSON.stringify(await readValue(destination, 'core', 'account')))
     )
       throw new Error(
@@ -271,19 +255,12 @@ async function copyDatabase(source: IDBDatabase, name: string): Promise<void> {
   }
 }
 
-async function storeCounts(database: IDBDatabase): Promise<Record<string, number>> {
+async function storeCounts(database: IDBPDatabase): Promise<Record<string, number>> {
   const counts: Record<string, number> = {};
   for (const name of Array.from(database.objectStoreNames)) {
-    counts[name] = await new Promise<number>((resolve, reject) => {
-      const tx = database.transaction(name, 'readonly');
-      const request = tx.objectStore(name).count();
-      tx.oncomplete = () => {
-        resolve(request.result);
-      };
-      tx.onabort = tx.onerror = () => {
-        reject(tx.error ?? new Error('Could not count v1 records'));
-      };
-    });
+    const tx = database.transaction(name, 'readonly');
+    const [count] = await Promise.all([tx.store.count(), tx.done]);
+    counts[name] = count;
   }
   return counts;
 }
@@ -376,7 +353,7 @@ async function migrate(): Promise<void> {
         activeUserId,
         snapshots: await Promise.all(
           sources.map(async (source) =>
-            source ? { version: source.version, counts: await storeCounts(source) } : null
+            source ? { version: source.version, counts: await storeCounts(wrap(source)) } : null
           )
         ),
       });

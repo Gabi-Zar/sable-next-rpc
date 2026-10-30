@@ -1,5 +1,6 @@
 import type { CoreEvent, RpcError } from '#src/generated/protocol';
 import { WebSocket as ReconnectingWebSocket } from 'partysocket';
+import { stringToBase64 } from 'uint8array-extras';
 
 import { boundServerIdentity } from '#lib/notifications/room-names.js';
 import { CoreError, type Attachment, type Gallery, type Transport } from './index';
@@ -53,13 +54,7 @@ function httpUrl(url: string, path: string): string {
 }
 
 function encodedBytes(value: string): string {
-  const bytes = new TextEncoder().encode(value);
-  if (typeof bytes.toBase64 === 'function') {
-    return bytes.toBase64({ alphabet: 'base64url', omitPadding: true });
-  }
-  let binary = '';
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '');
+  return stringToBase64(value, { urlSafe: true });
 }
 
 async function responseError(response: Response): Promise<CoreError> {

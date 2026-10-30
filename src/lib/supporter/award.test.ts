@@ -6,6 +6,12 @@ import { EXPIRED, FIXTURE_KEYS, FIXTURE_USER, PERMANENT, VALID } from './fixture
 const NOW = Date.UTC(2026, 9, 4);
 
 describe('canonicalJson', () => {
+  test('keeps the signed wire representation of JSON edge cases', () => {
+    expect(canonicalJson(JSON.parse('{"10":"ten","2":"two","a":-0,"z":"\\ud800"}'))).toBe(
+      '{"10":"ten","2":"two","a":0,"z":"\\ud800"}'
+    );
+    expect(canonicalJson({ value: Number.POSITIVE_INFINITY })).toBe('{"value":null}');
+  });
   test('sorts keys and drops whitespace', () => {
     expect(canonicalJson({ b: 1, a: { d: [2, 1], c: 'x' } })).toBe(
       '{"a":{"c":"x","d":[2,1]},"b":1}'

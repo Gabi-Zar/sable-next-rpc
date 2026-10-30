@@ -119,6 +119,25 @@ test('a payload in the wrong shape yields no results rather than throwing', () =
   }
 });
 
+test('malformed metadata does not discard usable GIFs or neighboring records', () => {
+  const [usable, empty] = gifProviders.tenor.parse({
+    results: [
+      null,
+      {
+        id: 'kept',
+        title: false,
+        content_description: 23,
+        media_formats: {
+          gif: { url: 'https://media.tenor.com/a/cat.gif', dims: ['bad', '12'], size: '12' },
+        },
+      },
+      { id: 7, title: 'title', media_formats: [] },
+    ],
+  });
+  expect(usable).toMatchObject({ id: 'kept', title: 'GIF', width: 0, height: 12, size: 12 });
+  expect(empty).toMatchObject({ id: '', title: 'title', mediaUrl: '' });
+});
+
 test('klipy keeps only the gif encoding of each size', () => {
   const results = gifProviders.klipy.parse({
     data: {
@@ -216,6 +235,7 @@ test('a filename gets the extension the proxy will actually serve', () => {
   expect(gifFilename('a cat', 'image/gif')).toBe('a-cat.gif');
   expect(gifFilename('a cat.gif', 'image/gif')).toBe('a-cat.gif');
   expect(gifFilename('a cat', 'image/webp')).toBe('a-cat.webp');
+  expect(gifFilename('a cat', 'image/jpeg')).toBe('a-cat.gif');
   expect(gifFilename('  ', 'image/gif')).toBe('gif.gif');
 });
 

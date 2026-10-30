@@ -1,17 +1,30 @@
+import * as v from 'valibot';
+
 import type { PersonaTriggerView, PersonaView, PronounView } from '#src/generated/protocol';
 import { splitPluralkitNamePronouns } from './pronouns';
 
-export interface PluralkitMember {
-  id: string;
-  uuid?: string | null;
-  name: string;
-  display_name?: string | null;
-  color?: string | null;
-  pronouns?: string | null;
-  avatar_url?: string | null;
-  description?: string | null;
-  proxy_tags?: { prefix?: string | null; suffix?: string | null }[] | null;
-}
+const OptionalText = v.nullish(v.string());
+const MemberSchema = v.looseObject({
+  id: v.string(),
+  name: v.string(),
+  uuid: OptionalText,
+  display_name: OptionalText,
+  color: OptionalText,
+  pronouns: OptionalText,
+  avatar_url: OptionalText,
+  description: OptionalText,
+  proxy_tags: v.nullish(v.array(v.looseObject({ prefix: OptionalText, suffix: OptionalText }))),
+});
+const MembersSchema = v.array(MemberSchema);
+const ExportSchema = v.union([
+  MembersSchema,
+  v.pipe(
+    v.object({ members: MembersSchema }),
+    v.transform((value) => value.members)
+  ),
+]);
+
+export type PluralkitMember = v.InferOutput<typeof MemberSchema>;
 
 const API = 'https://api.pluralkit.me/v2';
 
@@ -31,27 +44,17 @@ export async function fetchPluralkitMembers(
   });
   if (!response.ok) throw new Error(`pluralkit responded ${String(response.status)}`);
 
-  const members: unknown = await response.json();
-  if (!Array.isArray(members)) throw new Error('pluralkit returned no member list');
-  return members as PluralkitMember[];
-}
-
-function isMember(value: unknown): value is PluralkitMember {
-  if (typeof value !== 'object' || value === null) return false;
-  const { id, name } = value as Record<string, unknown>;
-  return typeof id === 'string' && typeof name === 'string';
+  const result = v.safeParse(MembersSchema, await response.json());
+  if (!result.success) throw new Error('pluralkit returned an invalid member list');
+  return result.output;
 }
 
 export function parsePluralkitExport(text: string): PluralkitMember[] {
-  const parsed: unknown = JSON.parse(text);
-  const members: unknown =
-    typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)
-      ? (parsed as { members?: unknown }).members
-      : parsed;
-  if (!Array.isArray(members) || !members.every(isMember)) {
+  const result = v.safeParse(ExportSchema, JSON.parse(text));
+  if (!result.success) {
     throw new Error('not a PluralKit member list');
   }
-  return members;
+  return result.output;
 }
 
 function colors(

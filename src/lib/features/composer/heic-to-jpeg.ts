@@ -1,10 +1,10 @@
-const HEIC_BRANDS = new Set(['heic', 'heix', 'heim', 'heis', 'hevc', 'hevx', 'mif1', 'msf1']);
+import { imageMime } from '#lib/media-signatures.js';
+
 const MAX_CANVAS_PIXELS = 16_777_216;
 
 export async function isHeic(file: Blob): Promise<boolean> {
   const head = new Uint8Array(await file.slice(0, 12).arrayBuffer());
-  const ascii = (offset: number) => String.fromCharCode(...head.subarray(offset, offset + 4));
-  return head.length === 12 && ascii(4) === 'ftyp' && HEIC_BRANDS.has(ascii(8));
+  return imageMime(head) === 'image/heic';
 }
 
 export async function jpegFromHeic(file: File): Promise<File> {

@@ -1,23 +1,15 @@
+import { buf as crc32 } from 'crc-32';
+import { concatUint8Arrays as concat } from 'uint8array-extras';
+
+import { imageMime } from '#lib/media-signatures.js';
 import type { ImageMetadata } from '#lib/settings/preferences.svelte.js';
 
 type Bytes = Uint8Array<ArrayBuffer>;
 type Scope = Exclude<ImageMetadata, 'keep'>;
 
-const PNG_SIGNATURE = '\x89PNG\r\n\x1a\n';
 const PNG_TEXT_CHUNKS = new Set(['eXIf', 'tEXt', 'zTXt', 'iTXt', 'tIME']);
 const WEBP_METADATA_CHUNKS = new Set(['EXIF', 'XMP ']);
 const JPEG_METADATA_MARKERS = new Set([0xe1, 0xed, 0xfe]);
-const HEIF_BRANDS = new Set([
-  'heic',
-  'heix',
-  'heim',
-  'heis',
-  'hevc',
-  'hevx',
-  'mif1',
-  'msf1',
-  'avif',
-]);
 const XMP_CONTENT_TYPE = 'application/rdf+xml';
 const GPS_IFD_TAG = 0x8825;
 const ORIENTATION_TAG = 0x0112;
@@ -39,13 +31,11 @@ export async function stripMetadata(file: File, mode: ImageMetadata): Promise<Fi
 }
 
 export function stripBytes(bytes: Bytes, scope: Scope): Bytes | null {
-  if (bytes[0] === 0xff && bytes[1] === 0xd8) return stripJpeg(bytes, scope);
-  if (ascii(bytes, 0, 8) === PNG_SIGNATURE) return stripPng(bytes, scope);
-  if (ascii(bytes, 0, 4) === 'RIFF' && ascii(bytes, 8, 4) === 'WEBP')
-    return stripWebp(bytes, scope);
-  if (ascii(bytes, 4, 4) === 'ftyp' && HEIF_BRANDS.has(ascii(bytes, 8, 4))) {
-    return stripHeif(bytes, scope);
-  }
+  const type = imageMime(bytes);
+  if (type === 'image/jpeg') return stripJpeg(bytes, scope);
+  if (type === 'image/png') return stripPng(bytes, scope);
+  if (type === 'image/webp') return stripWebp(bytes, scope);
+  if (type === 'image/heic' || type === 'image/avif') return stripHeif(bytes, scope);
   return null;
 }
 
@@ -55,16 +45,6 @@ function ascii(bytes: Uint8Array, offset: number, length: number): string {
 
 function viewOf(bytes: Uint8Array): DataView {
   return new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-}
-
-function concat(parts: readonly Uint8Array[]): Bytes {
-  const out = new Uint8Array(parts.reduce((sum, part) => sum + part.length, 0));
-  let offset = 0;
-  for (const part of parts) {
-    out.set(part, offset);
-    offset += part.length;
-  }
-  return out;
 }
 
 const mentionsLocation = (bytes: Uint8Array): boolean =>
@@ -179,7 +159,7 @@ function pngOrientationChunk(orientation: number): Uint8Array {
   view.setUint32(0, 26);
   chunk.set([0x65, 0x58, 0x49, 0x66], 4);
   chunk.set(orientationTiff(orientation), 8);
-  view.setUint32(34, crc32(chunk.subarray(4, 34)));
+  view.setUint32(34, crc32(chunk.subarray(4, 34)) >>> 0);
   return chunk;
 }
 
@@ -189,18 +169,6 @@ function webpOrientationChunk(orientation: number): Uint8Array {
   new DataView(chunk.buffer).setUint32(4, 26, true);
   chunk.set(orientationTiff(orientation), 8);
   return chunk;
-}
-
-const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
-  let c = n;
-  for (let bit = 0; bit < 8; bit += 1) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
-  return c >>> 0;
-});
-
-function crc32(bytes: Uint8Array): number {
-  let crc = 0xffffffff;
-  for (const byte of bytes) crc = CRC_TABLE[(crc ^ byte) & 0xff] ^ (crc >>> 8);
-  return (crc ^ 0xffffffff) >>> 0;
 }
 
 function stripPng(bytes: Bytes, scope: Scope): Bytes | null {
@@ -220,7 +188,7 @@ function stripPng(bytes: Bytes, scope: Scope): Bytes | null {
       }
     } else if (type === 'eXIf') {
       clearGps(chunk.subarray(8, chunk.length - 4));
-      viewOf(chunk).setUint32(chunk.length - 4, crc32(chunk.subarray(4, chunk.length - 4)));
+      viewOf(chunk).setUint32(chunk.length - 4, crc32(chunk.subarray(4, chunk.length - 4)) >>> 0);
       parts.push(chunk);
     } else if (type !== 'iTXt' || !mentionsLocation(chunk)) {
       parts.push(chunk);

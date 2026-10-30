@@ -149,9 +149,16 @@ test('an archive and an animated png carry the type their handler needs', () => 
   expect(mimeFromName('wave.apng')).toBe('image/apng');
 });
 
+test('native files use maintained MIME mappings beyond the media formats', () => {
+  expect(mimeFromName('notes.md')).toBe('text/markdown');
+  expect(mimeFromName('app.webmanifest')).toBe('application/manifest+json');
+  expect(mimeFromName('voice.opus')).toBe('audio/opus');
+});
+
 test('an unknown or absent extension falls back to a generic type', () => {
   expect(mimeFromName('archive.zzz')).toBe('application/octet-stream');
   expect(mimeFromName('README')).toBe('application/octet-stream');
+  expect(mimeFromName('png')).toBe('application/octet-stream');
 });
 
 test.each(['', 'application/octet-stream', 'application/ogg'])(
@@ -179,6 +186,12 @@ test('a wildcard accept expands to every extension of that type', () => {
 
 test('an exact accept matches only that type', () => {
   expect(filtersFor('application/pdf')?.[0].extensions).toEqual(['pdf']);
+});
+
+test('native filters include MIME aliases and deduplicate explicit extensions', () => {
+  const extensions = filtersFor('image/jpeg,.JPG,.camera')?.[0].extensions;
+  expect(extensions).toEqual(['jpg', 'jpeg', 'jpe', 'camera']);
+  expect(filtersFor('.pdf')?.[0].extensions).toEqual(['pdf']);
 });
 
 test('accepting anything leaves the dialog unfiltered', () => {

@@ -1,3 +1,5 @@
+import { uint8ArrayToBase64 } from 'uint8array-extras';
+
 const AVATAR_EDGE = 256;
 const COUNTER_BITS = 64;
 
@@ -10,9 +12,7 @@ export interface EncryptedFile {
 }
 
 function base64(bytes: Uint8Array): string {
-  let binary = '';
-  for (const byte of bytes) binary += String.fromCharCode(byte);
-  return btoa(binary).replace(/=+$/, '');
+  return uint8ArrayToBase64(bytes).replace(/=+$/, '');
 }
 
 export async function encryptAttachment(
