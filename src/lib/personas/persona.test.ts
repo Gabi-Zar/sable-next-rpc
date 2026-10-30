@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import type { PersonaTriggerView, PersonaView } from '#src/generated/protocol';
 
 import {
+  alternateAvatarId,
   projectPersona,
   reorderPersonas,
   resolvePersona,
@@ -160,6 +161,25 @@ describe('stripProxyHtml', () => {
 
   it('does not strip HTML that does not contain the trigger as text', () => {
     expect(stripProxyHtml('<em>test</em>', trigger('k:'))).toBeNull();
+  });
+});
+
+describe('alternateAvatarId', () => {
+  const kris = persona('Kris');
+  const held = { persona_id: 'Kris', valid_until: null, alternate_avatar_id: 'smile' };
+
+  it('uses the avatar a shorthand names', () => {
+    expect(alternateAvatarId(kris, { ...trigger('k:'), alternate_avatar_id: 'wave' }, held)).toBe(
+      'wave'
+    );
+  });
+
+  it('keeps the held avatar when a shorthand for the same persona names none', () => {
+    expect(alternateAvatarId(kris, trigger('k:'), held)).toBe('smile');
+  });
+
+  it('ignores an avatar held for another persona', () => {
+    expect(alternateAvatarId(persona('Robin'), trigger('r:'), held)).toBeNull();
   });
 });
 

@@ -51,29 +51,46 @@ function live(selection: PersonaSelectionView | undefined, now: number): boolean
 
 export type PersonaAssociation = PersonaSelectionView | false | undefined;
 
-export function resolvePersona({
-  personas,
-  proxied,
-  room,
-  spaces = [],
-  account,
-  now,
-}: {
+interface PersonaScope {
   personas: readonly PersonaView[];
-  proxied?: PersonaView | undefined;
   room?: PersonaAssociation;
   spaces?: readonly PersonaAssociation[];
   account?: PersonaSelectionView | undefined;
   now: number;
-}): PersonaView | undefined {
-  let inherited: PersonaView | undefined;
+}
+
+export function heldSelection({
+  personas,
+  room,
+  spaces = [],
+  account,
+  now,
+}: PersonaScope): PersonaAssociation {
   for (const selection of [room, ...spaces, account]) {
-    if (selection === false) return undefined;
-    if (!live(selection, now)) continue;
-    inherited = personaById(personas, selection?.persona_id);
-    if (inherited) break;
+    if (selection === false) return false;
+    if (live(selection, now) && personaById(personas, selection?.persona_id)) return selection;
   }
-  return proxied ?? inherited;
+  return undefined;
+}
+
+export function resolvePersona({
+  proxied,
+  ...scope
+}: PersonaScope & { proxied?: PersonaView | undefined }): PersonaView | undefined {
+  const held = heldSelection(scope);
+  if (held === false) return undefined;
+  return proxied ?? personaById(scope.personas, held?.persona_id);
+}
+
+export function alternateAvatarId(
+  persona: PersonaView,
+  trigger: PersonaTriggerView | undefined,
+  held: PersonaAssociation
+): string | null {
+  return (
+    trigger?.alternate_avatar_id ??
+    (held && held.persona_id === persona.id ? held.alternate_avatar_id : null)
+  );
 }
 
 export interface ProxyMatch {

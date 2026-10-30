@@ -1,7 +1,14 @@
 import type { PerMessageProfileView } from '#src/generated/protocol';
 import { preferences } from '#lib/settings/preferences.svelte.js';
 import type { PersonaStore } from './personas.svelte.js';
-import { projectPersona, resolvePersona, resolveProxy, stripProxyHtml } from './persona.js';
+import {
+  alternateAvatarId,
+  heldSelection,
+  projectPersona,
+  resolvePersona,
+  resolveProxy,
+  stripProxyHtml,
+} from './persona.js';
 
 export function outgoingPersona(
   personas: PersonaStore,
@@ -11,24 +18,24 @@ export function outgoingPersona(
   formatted: string | null = null
 ): { body: string; formatted: string | null; persona: PerMessageProfileView | null } {
   const proxied = preferences.personaProxying ? resolveProxy(personas.personas, body) : undefined;
-  const personaSelection = personas.selectionFor(null);
-  const persona = resolvePersona({
+  const scope = {
     personas: personas.personas,
-    proxied: proxied?.persona,
     room: personas.associationFor(targetRoomId),
     spaces: spaceIds.map((id) => personas.associationFor(id)),
-    account: personaSelection ?? undefined,
+    account: personas.selectionFor(null) ?? undefined,
     now: Date.now(),
-  });
+  };
+  const persona = resolvePersona({ ...scope, proxied: proxied?.persona });
 
   if (!persona) return { body, formatted, persona: null };
+  const alternate_avatar_id = alternateAvatarId(persona, proxied?.trigger, heldSelection(scope));
   if (proxied && preferences.personaLatching !== 'off') {
     void personas
       .select(
         preferences.personaLatching === 'room' ? targetRoomId : null,
         proxied.persona.id,
         null,
-        proxied.trigger.alternate_avatar_id ?? null
+        alternate_avatar_id
       )
       .catch((error: unknown) => {
         console.warn('[sable personas] latching failed', error);
@@ -40,8 +47,6 @@ export function outgoingPersona(
     console.warn('[sable personas] updating timestamp failed', error);
   });
 
-  const alternate_avatar_id =
-    proxied?.trigger.alternate_avatar_id ?? personaSelection?.alternate_avatar_id;
   const avatar_url =
     (alternate_avatar_id
       ? persona.alternate_avatars?.find((avatar) => avatar.id == alternate_avatar_id)
