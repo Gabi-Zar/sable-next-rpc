@@ -284,6 +284,7 @@
     align-items: center;
     display: inline-flex;
     gap: var(--space-050);
+    user-select: none;
   }
 
   .editor :global(.composer-mention-remove) {
