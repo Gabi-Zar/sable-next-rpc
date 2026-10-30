@@ -48,6 +48,16 @@ test('rejects unusable bounds', () => {
   expect(sanitizeWindowState({ ...saved, width: 0 })).toBeUndefined();
   expect(sanitizeWindowState({ ...saved, height: -1 })).toBeUndefined();
   expect(sanitizeWindowState({ ...saved, x: 'left' })).toBeUndefined();
+  expect(sanitizeWindowState({ ...saved, y: Number.NaN })).toBeUndefined();
+  expect(sanitizeWindowState({ ...saved, width: Number.POSITIVE_INFINITY })).toBeUndefined();
+  expect(sanitizeWindowState({ ...saved, height: 0.4 })).toBeUndefined();
+});
+
+test('rounds finite bounds and ignores extra stored properties', () => {
+  expect(sanitizeWindowState({ ...saved, x: -0.6, y: 80.4, width: 1279.6, extra: 'old' })).toEqual({
+    ...saved,
+    x: -1,
+  });
 });
 
 test('round-trips a window smaller than the desktop minimum on a mobile display', () => {

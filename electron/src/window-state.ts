@@ -1,6 +1,8 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 import type { Rectangle } from 'electron';
+import * as v from 'valibot';
+import { sync as writeFileAtomicSync } from 'write-file-atomic';
 
 export interface WindowState extends Rectangle {
   maximized: boolean;
@@ -10,30 +12,19 @@ export interface WindowState extends Rectangle {
 export const MIN_WIDTH = 400;
 export const MIN_HEIGHT = 500;
 
-function integer(value: unknown): number | undefined {
-  return typeof value === 'number' && Number.isFinite(value) ? Math.round(value) : undefined;
-}
+const Coordinate = v.pipe(v.number(), v.finite(), v.transform(Math.round));
+const WindowStateSchema = v.object({
+  x: Coordinate,
+  y: Coordinate,
+  width: v.pipe(Coordinate, v.minValue(1)),
+  height: v.pipe(Coordinate, v.minValue(1)),
+  maximized: v.fallback(v.boolean(), false),
+  fullscreen: v.fallback(v.boolean(), false),
+});
 
 export function sanitizeWindowState(value: unknown): WindowState | undefined {
-  if (typeof value !== 'object' || value === null) return undefined;
-  const stored = value as Record<string, unknown>;
-  const x = integer(stored.x);
-  const y = integer(stored.y);
-  const width = integer(stored.width);
-  const height = integer(stored.height);
-  if (x === undefined || y === undefined || width === undefined || height === undefined) {
-    return undefined;
-  }
-  if (width <= 0 || height <= 0) return undefined;
-
-  return {
-    x,
-    y,
-    width,
-    height,
-    maximized: stored.maximized === true,
-    fullscreen: stored.fullscreen === true,
-  };
+  const result = v.safeParse(WindowStateSchema, value);
+  return result.success ? result.output : undefined;
 }
 
 export function readWindowState(path: string): WindowState | undefined {
@@ -47,7 +38,7 @@ export function readWindowState(path: string): WindowState | undefined {
 export function writeWindowState(path: string, state: WindowState): void {
   try {
     mkdirSync(dirname(path), { recursive: true });
-    writeFileSync(path, JSON.stringify(state));
+    writeFileAtomicSync(path, JSON.stringify(state));
   } catch (error) {
     console.error('[sable window] could not save the window state', error);
   }

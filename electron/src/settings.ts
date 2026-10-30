@@ -1,5 +1,6 @@
 import type { WebContents } from 'electron';
 import { readFileSync } from 'node:fs';
+import * as v from 'valibot';
 
 type WebRtcIpPolicy = Parameters<WebContents['setWebRTCIPHandlingPolicy']>[0];
 
@@ -10,42 +11,30 @@ const WEBRTC_IP_POLICIES: readonly WebRtcIpPolicy[] = [
   'disable_non_proxied_udp',
 ];
 
-export interface Settings {
-  hardwareAcceleration: boolean;
-  hardwareVideoAcceleration: boolean;
-  smoothScrolling: boolean;
-  webRtcIpPolicy: WebRtcIpPolicy;
-  updateChannel: 'stable' | 'nightly';
-  customTitleBar: boolean;
-}
-
-const DEFAULTS: Settings = {
+const DEFAULTS = {
   hardwareAcceleration: true,
   hardwareVideoAcceleration: true,
   smoothScrolling: true,
   webRtcIpPolicy: 'default',
   updateChannel: 'stable',
   customTitleBar: process.platform === 'win32',
-};
+} as const;
+
+const SettingsSchema = v.object({
+  hardwareAcceleration: v.fallback(v.boolean(), DEFAULTS.hardwareAcceleration),
+  hardwareVideoAcceleration: v.fallback(v.boolean(), DEFAULTS.hardwareVideoAcceleration),
+  smoothScrolling: v.fallback(v.boolean(), DEFAULTS.smoothScrolling),
+  webRtcIpPolicy: v.fallback(v.picklist(WEBRTC_IP_POLICIES), DEFAULTS.webRtcIpPolicy),
+  updateChannel: v.fallback(v.picklist(['stable', 'nightly']), DEFAULTS.updateChannel),
+  customTitleBar: v.fallback(v.boolean(), DEFAULTS.customTitleBar),
+});
+
+export type Settings = v.InferOutput<typeof SettingsSchema>;
+
+const parseSettings = v.parser(v.fallback(SettingsSchema, () => ({ ...DEFAULTS })));
 
 export function sanitize(value: unknown): Settings {
-  const stored = (typeof value === 'object' && value !== null ? value : {}) as Record<
-    string,
-    unknown
-  >;
-  const flag = (key: 'hardwareAcceleration' | 'hardwareVideoAcceleration' | 'smoothScrolling') =>
-    typeof stored[key] === 'boolean' ? stored[key] : DEFAULTS[key];
-  const policy = WEBRTC_IP_POLICIES.find((candidate) => candidate === stored.webRtcIpPolicy);
-
-  return {
-    hardwareAcceleration: flag('hardwareAcceleration'),
-    hardwareVideoAcceleration: flag('hardwareVideoAcceleration'),
-    smoothScrolling: flag('smoothScrolling'),
-    webRtcIpPolicy: policy ?? DEFAULTS.webRtcIpPolicy,
-    updateChannel: stored.updateChannel === 'nightly' ? 'nightly' : DEFAULTS.updateChannel,
-    customTitleBar:
-      typeof stored.customTitleBar === 'boolean' ? stored.customTitleBar : DEFAULTS.customTitleBar,
-  };
+  return parseSettings(value);
 }
 
 export function readSettings(path: string): Settings {

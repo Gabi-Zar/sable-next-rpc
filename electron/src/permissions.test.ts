@@ -8,7 +8,7 @@ const { showMessageBox, readGrantsFile, writeGrantsFile } = vi.hoisted(() => ({
 }));
 vi.mock('electron', () => ({ dialog: { showMessageBox } }));
 vi.mock('node:fs', () => ({ readFileSync: readGrantsFile }));
-vi.mock('node:fs/promises', () => ({ writeFile: writeGrantsFile }));
+vi.mock('./persistence', () => ({ writeJson: writeGrantsFile }));
 
 import { enforcePermissions } from './permissions';
 
@@ -42,7 +42,49 @@ beforeEach(() => {
   vi.clearAllMocks();
   showMessageBox.mockResolvedValue({ response: 1 });
   readGrantsFile.mockReturnValue('[]');
+  writeGrantsFile.mockResolvedValue(undefined);
 });
+
+test.skipIf(process.platform === 'darwin')(
+  'an app permission is granted only after its file is saved',
+  async () => {
+    let saved!: () => void;
+    const saving = new Promise<void>((resolve) => {
+      saved = resolve;
+    });
+    showMessageBox.mockResolvedValue({ response: 0 });
+    writeGrantsFile.mockReturnValueOnce(saving);
+    const callback = vi.fn();
+    handlers().request(contents(), 'geolocation', callback, {
+      isMainFrame: true,
+      requestingUrl: 'sable-app://app/',
+    });
+    await vi.waitFor(() => {
+      expect(writeGrantsFile).toHaveBeenCalledWith('/unused/grants.json', ['location']);
+    });
+    expect(callback).not.toHaveBeenCalled();
+    saved();
+    await vi.waitFor(() => {
+      expect(callback).toHaveBeenCalledWith(true);
+    });
+  }
+);
+
+test.skipIf(process.platform === 'darwin')(
+  'a failed permission save denies the request',
+  async () => {
+    showMessageBox.mockResolvedValue({ response: 0 });
+    writeGrantsFile.mockRejectedValueOnce(new Error('disk full'));
+    const callback = vi.fn();
+    handlers().request(contents(), 'geolocation', callback, {
+      isMainFrame: true,
+      requestingUrl: 'sable-app://app/',
+    });
+    await vi.waitFor(() => {
+      expect(callback).toHaveBeenCalledWith(false);
+    });
+  }
+);
 
 test('allows Electron 44 display capture to reach the source picker', () => {
   const callback = vi.fn();

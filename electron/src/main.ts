@@ -21,8 +21,10 @@ import {
 import { createReadStream } from 'node:fs';
 import { readFile, stat, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { basename, extname, isAbsolute, join, relative, resolve } from 'node:path';
+import { basename, isAbsolute, join, relative, resolve } from 'node:path';
 import { Readable } from 'node:stream';
+import { setTimeout as delay } from 'node:timers/promises';
+import mime from 'mime';
 import { cspHeader, inlineScripts } from '../../scripts/build/csp.mjs';
 
 import type {
@@ -37,6 +39,7 @@ import { registerContextMenu } from './context-menu';
 import { claimSchemes } from './linux-schemes';
 import { openExternal, originOf } from './navigation';
 import { enforcePermissions } from './permissions';
+import { flushWritesBeforeQuit, writeJson } from './persistence';
 import { writeDownload } from './downloads';
 import { shareFile } from './share';
 import * as screenAudio from './screen-audio';
@@ -44,7 +47,7 @@ import { available as screenAudioAvailable } from './audiofox';
 import { screenShareStreams } from './screen-share';
 import { initSentry, setTelemetryConsent } from './sentry';
 import { readSettings, sanitize } from './settings';
-import { ignoreBrokenPipes } from './stdio';
+import { captureCorePanic, ignoreBrokenPipes } from './stdio';
 import { importTauriConfig } from './tauri-import';
 import { DesktopTray, hideToTray } from './tray';
 import { registerUpdater, setUpdateChannel, supportsAutoUpdate } from './updater';
@@ -66,7 +69,6 @@ const IDENTIFIER = process.env.SABLE_IDENTIFIER ?? __SABLE_IDENTIFIER__;
 const SCHEME = 'sable-app';
 const DEEP_LINK_SCHEMES = deepLinkSchemes(IDENTIFIER);
 const APP_ORIGIN = `${SCHEME}://app`;
-const PANIC_MARKER = 'SABLE_CORE_PANIC ';
 const USER_AGENT = `Sable/${__SABLE_APP_VERSION__}`;
 
 // Call libraries inspect navigator.userAgent to select Chromium workarounds.
@@ -177,24 +179,6 @@ async function pagePolicy(file: string): Promise<string> {
   return computed;
 }
 
-const CONTENT_TYPES: Record<string, string> = {
-  '.css': 'text/css',
-  '.html': 'text/html; charset=utf-8',
-  '.ico': 'image/x-icon',
-  '.js': 'text/javascript',
-  '.json': 'application/json',
-  '.mjs': 'text/javascript',
-  '.png': 'image/png',
-  '.svg': 'image/svg+xml',
-  '.ttf': 'font/ttf',
-  '.txt': 'text/plain; charset=utf-8',
-  '.wasm': 'application/wasm',
-  '.webm': 'video/webm',
-  '.webmanifest': 'application/manifest+json',
-  '.woff': 'font/woff',
-  '.woff2': 'font/woff2',
-};
-
 async function serveApp(request: Request): Promise<Response> {
   const path = resolve(distDir, `.${decodeURIComponent(new URL(request.url).pathname)}`);
   const fromDist = relative(distDir, path);
@@ -203,9 +187,10 @@ async function serveApp(request: Request): Promise<Response> {
   const file = entry?.isDirectory() ? join(path, 'index.html') : path;
   const found = entry !== undefined && (await stat(file).catch(() => undefined))?.isFile();
   const target = found ? file : join(distDir, '404.html');
+  const type = mime.getType(target) ?? 'application/octet-stream';
 
   const headers = new Headers({
-    'Content-Type': CONTENT_TYPES[extname(target)] ?? 'application/octet-stream',
+    'Content-Type': type === 'text/html' || type === 'text/plain' ? `${type}; charset=utf-8` : type,
     'Content-Security-Policy': target.endsWith('.html')
       ? await pagePolicy(target)
       : cspHeader(__SABLE_CSP__),
@@ -274,10 +259,16 @@ function isCustomTitleBarRequested(value: unknown): boolean {
   return (value as { useCustomTitleBar?: unknown } | null)?.useCustomTitleBar === true;
 }
 
+function persistSettings(): void {
+  void writeJson(settingsPath, settings).catch((error: unknown) => {
+    console.error('[sable settings] could not save settings', error);
+  });
+}
+
 function setCustomTitleBar(custom: boolean): void {
   if (custom === settings.customTitleBar) return;
   settings = { ...settings, customTitleBar: custom };
-  void writeFile(settingsPath, JSON.stringify(settings));
+  persistSettings();
   if (!mainWindow || mainWindow.isDestroyed()) return;
 
   const previous = mainWindow;
@@ -341,6 +332,8 @@ ipcMain.on('sable-deep-links-listening', (event) => {
   if (isAppFrame(event.senderFrame)) pageListening = true;
 });
 
+const PANIC_GRACE_MS = 1000;
+
 function startCore(): UtilityProcess {
   const child = utilityProcess.fork(join(__dirname, 'core-host.cjs'), [], {
     serviceName: 'Sable Core',
@@ -353,21 +346,20 @@ function startCore(): UtilityProcess {
     process.stdout.write(chunk);
   });
 
-  let panic: string | undefined;
-  let partial = '';
   child.stderr?.on('data', (chunk: Buffer) => {
     process.stderr.write(chunk);
-    const lines = (partial + chunk.toString()).split('\n');
-    partial = lines.pop() ?? '';
-    for (const line of lines) {
-      if (line.startsWith(PANIC_MARKER)) panic ??= line.slice(PANIC_MARKER.length);
-    }
+  });
+  const panic = captureCorePanic(child.stderr).catch((error: unknown) => {
+    console.error('[sable core] could not read stderr', error);
+    return undefined;
   });
 
   child.once('exit', (code) => {
     if (core === child) core = null;
-    if (quitting || !mainWindow || mainWindow.isDestroyed()) return;
-    mainWindow.webContents.send('sable-core-exit', panic ?? `core exited with code ${code}`);
+    void Promise.race([panic, delay(PANIC_GRACE_MS, undefined, { ref: false })]).then((message) => {
+      if (quitting || !mainWindow || mainWindow.isDestroyed()) return;
+      mainWindow.webContents.send('sable-core-exit', message ?? `core exited with code ${code}`);
+    });
   });
 
   return child;
@@ -383,7 +375,7 @@ ipcMain.on('sable-apply-settings', (event, value: unknown) => {
   if (JSON.stringify(next) === JSON.stringify(settings)) return;
   settings = next;
   setUpdateChannel(next.updateChannel);
-  void writeFile(settingsPath, JSON.stringify(next));
+  persistSettings();
   for (const contents of webContents.getAllWebContents()) {
     contents.setWebRTCIPHandlingPolicy(next.webRtcIpPolicy);
   }
@@ -710,12 +702,17 @@ if (!app.requestSingleInstanceLock()) {
     showMainWindow();
   });
 
-  app.on('before-quit', () => {
-    quitting = true;
-    screenAudio.stop();
-    if (mainWindow && !mainWindow.isDestroyed()) rememberWindowState(mainWindow);
-    persistWindowState();
-    desktopTray.destroy();
+  app.on('before-quit', (event) => {
+    if (!quitting) {
+      quitting = true;
+      screenAudio.stop();
+      if (mainWindow && !mainWindow.isDestroyed()) rememberWindowState(mainWindow);
+      persistWindowState();
+      desktopTray.destroy();
+    }
+    flushWritesBeforeQuit(event, () => {
+      app.quit();
+    });
   });
 
   app.on('window-all-closed', () => {

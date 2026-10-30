@@ -23,7 +23,9 @@ let directory: string;
 function usePlatform(platform: NodeJS.Platform): void {
   const original = process.platform;
   Object.defineProperty(process, 'platform', { value: platform });
-  onTestFinished(() => Object.defineProperty(process, 'platform', { value: original }));
+  onTestFinished(() => {
+    Object.defineProperty(process, 'platform', { value: original });
+  });
 }
 
 beforeEach(async () => {

@@ -1,6 +1,7 @@
 import { dialog, type BrowserWindow, type Session } from 'electron';
 import { readFileSync } from 'node:fs';
-import { writeFile } from 'node:fs/promises';
+
+import { writeJson } from './persistence';
 
 const GRANTED = new Set([
   'clipboard-sanitized-write',
@@ -79,7 +80,7 @@ export function enforcePermissions(
       return true;
     }
     for (const kind of kinds) grants.add(kind);
-    await writeFile(grantsPath, JSON.stringify([...grants].sort()));
+    await writeJson(grantsPath, [...grants].sort());
     return true;
   }
 
