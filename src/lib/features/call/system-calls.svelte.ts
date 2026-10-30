@@ -17,7 +17,7 @@ export class SystemCalls {
       await join();
       this.#answered = { callId, roomId };
     } catch (error) {
-      console.debug('[sable call] system answer not joined', error);
+      console.warn('[sable call] system answer not joined', error);
     } finally {
       void fulfillSystemAnswer(uuid);
     }

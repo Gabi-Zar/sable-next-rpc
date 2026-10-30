@@ -233,9 +233,11 @@
   let sending = $state(false);
   let sendFailed = $state<'send' | 'open' | null>(null);
   let confirmingDirect = $state(false);
-  $effect(() => {
-    onNestedMenuOpenChange?.(confirmingDirect);
-  });
+
+  function setConfirmingDirect(next: boolean): void {
+    confirmingDirect = next;
+    onNestedMenuOpenChange?.(next);
+  }
   let homeserver = $derived(userId.slice(userId.indexOf(':') + 1));
   let elevated = $derived(roomMember !== null && roomMember.power_level >= 50);
   let roleTag = $derived(
@@ -423,7 +425,7 @@
 
   function messageUser(): void {
     if (hasDirectRoom(roomList.rooms, userId)) void openDirectMessage('');
-    else confirmingDirect = true;
+    else setConfirmingDirect(true);
   }
 
   function sendDirectMessage(event: SubmitEvent): void {
@@ -871,13 +873,14 @@
 />
 
 <ConfirmDialog
-  bind:open={confirmingDirect}
+  open={confirmingDirect}
+  onOpenChange={setConfirmingDirect}
   title={i18n.t('direct.confirmTitle', { name: displayName })}
   description={i18n.t('direct.confirmBody')}
   confirmLabel={i18n.t('direct.submit')}
   confirmVariant="primary"
   onConfirm={() => {
-    confirmingDirect = false;
+    setConfirmingDirect(false);
     void openDirectMessage('');
   }}
 />

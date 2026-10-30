@@ -7,7 +7,7 @@ export async function clearServerNotifications(): Promise<void> {
     const notifications = await registration?.getNotifications();
     for (const notification of notifications ?? []) notification.close();
   } catch (error) {
-    console.debug('[sable notifications] could not clear old notifications', error);
+    console.warn('[sable notifications] could not clear old notifications', error);
   }
 }
 

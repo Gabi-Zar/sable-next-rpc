@@ -26,7 +26,7 @@ export function watchMatrixLinks(open: (path: string) => void): () => void {
       receive(await currentDeepLinks((url) => matrixLinkPath(url) !== null));
     })
     .catch((error: unknown) => {
-      console.debug('[sable deep-link] subscribing failed', error);
+      console.warn('[sable deep-link] subscribing failed', error);
     });
   return () => {
     stopped = true;

@@ -87,7 +87,7 @@ export class ThreadRoots {
     } catch (error) {
       if (generation === this.generation) {
         this.error = true;
-        console.debug('[sable threads] loading threads failed', error);
+        console.warn('[sable threads] loading threads failed', error);
       }
     } finally {
       if (generation === this.generation) {

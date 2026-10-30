@@ -19,9 +19,6 @@
   let search = $state('');
   let includeMetadata = $state(true);
 
-  $effect(() => {
-    if (open) includeMetadata = true;
-  });
   let selected = $state.raw<string[]>([]);
   const fieldId = $props.id();
 

@@ -7,7 +7,7 @@ import type { RoomListItemView } from '#src/generated/protocol';
 
 vi.mock('$app/navigation', () => import('#lib/test-support/app-navigation.js'));
 vi.mock('#lib/core/context.js');
-const roomList = vi.hoisted(() => ({ rooms: [] as RoomListItemView[] }));
+const roomList = vi.hoisted(() => ({ rooms: [] as RoomListItemView[], settled: true }));
 vi.mock('#lib/rooms/room-list.svelte.js', async (original) => ({
   ...(await original<typeof import('#lib/rooms/room-list.svelte.js')>()),
   useRoomList: () => roomList,
@@ -24,7 +24,17 @@ beforeEach(() => {
 });
 afterEach(() => {
   roomList.rooms = [];
+  roomList.settled = true;
   core.rpc.rooms.createDm.mockReset();
+});
+
+test('waits for the room list before deciding whether to create a DM', async () => {
+  roomList.settled = false;
+  render(UserLinkCard, { props: { userId: '@alice:example.org', startChat: true } });
+  await screen.findByRole('heading', { name: 'Alice' });
+
+  expect(screen.queryByRole('dialog')).toBeNull();
+  expect(core.rpc.rooms.createDm).not.toHaveBeenCalled();
 });
 
 test('a chat action asks before creating a DM, then navigates after confirmation', async () => {

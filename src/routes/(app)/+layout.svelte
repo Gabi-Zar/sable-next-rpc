@@ -122,6 +122,7 @@
   import { clearPushFailure, recordPushFailure } from '#lib/features/notifications/push-failure.js';
   import CommandPalette from '#lib/ui/shortcuts/CommandPalette.svelte';
   import ToastRegion from '#lib/ui/ToastRegion.svelte';
+  import { toasts } from '#lib/ui/toasts.svelte.js';
   import ShareTargetSheet from '#lib/features/share/ShareTargetSheet.svelte';
   import { ShareInbox, watchSharedContent } from '#lib/features/share/share-inbox.svelte.js';
   import ShortcutsHelpDialog from '#lib/ui/shortcuts/ShortcutsHelpDialog.svelte';
@@ -553,7 +554,7 @@
     const write = (isActive: boolean): void => {
       deviceActivityWritten = isActive;
       void core.rpc.account.setDeviceActivity({ active: isActive }).catch((error: unknown) => {
-        console.debug('[sable activity] device activity not written', error);
+        console.warn('[sable activity] device activity not written', error);
       });
     };
     if (preferences.pushInactiveTimeout === 'off') {
@@ -823,7 +824,10 @@
                 shareInbox.accept(message.text ?? '', message.files ?? []);
               }
             })
-            .catch(() => {});
+            .catch((error: unknown) => {
+              console.warn('[sable share] shared content could not be verified', error);
+              toasts.error(i18n.t('errors.actionFailed'));
+            });
         }
       }
     });

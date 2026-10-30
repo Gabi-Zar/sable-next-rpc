@@ -81,7 +81,7 @@
   $effect(() => {
     // Read only the request here: profile loading and room updates must not repeat it.
     const requestedUser = userId;
-    if (!startChat) return;
+    if (!startChat || !roomList.settled) return;
     untrack(() => {
       const target = existingChatPath(roomList.rooms, requestedUser);
       if (target !== null) {
