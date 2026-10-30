@@ -15,6 +15,7 @@ afterEach(() => {
 
 test.each([
   { width: 390, height: 844, touch: true, wide: false, compactHeight: false },
+  { width: 393, height: 420, touch: true, wide: false, compactHeight: false },
   { width: 844, height: 479, touch: true, wide: false, compactHeight: true },
   { width: 844, height: 480, touch: true, wide: true, compactHeight: false },
   { width: 844, height: 390, touch: false, wide: true, compactHeight: false },

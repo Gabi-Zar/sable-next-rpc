@@ -73,13 +73,16 @@ test('a multiline expanded composer fits above the landscape phone keyboard', as
 });
 
 test('opening the keyboard keeps the portrait composer readable', async () => {
-  await page.viewport(390, 844);
+  await page.viewport(412, 844);
   setPreference('composerForm', 'tall');
   const screen = await mountComposer();
   await userEvent.click(screen.getByRole('combobox', { name: en.timeline.messagePlaceholder }));
-  await page.viewport(390, 400);
-  await expect.poll(() => document.querySelector('.composer-row.short')).not.toBeNull();
-  const row = document.querySelector<HTMLElement>('.composer-row.short');
+  await page.viewport(412, 400);
+  await expect.poll(() => window.innerHeight).toBe(400);
+  await new Promise(requestAnimationFrame);
+  await new Promise(requestAnimationFrame);
+  const row = document.querySelector<HTMLElement>('.composer-row');
+  expect(row?.classList.contains('short')).toBe(false);
   const editor = row?.querySelector<HTMLElement>('.editor');
   const controls = row?.querySelector<HTMLElement>('.composer-after');
   if (!row || !editor || !controls) throw new Error('Missing composer elements');
