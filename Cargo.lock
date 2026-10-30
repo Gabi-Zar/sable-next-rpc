@@ -7323,6 +7323,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "48e13bd8c0e9365c43cfa5c9e8f9ad49d3c8444926c9aac819e0e4dc503c8fdf"
 dependencies = [
  "aws-lc-rs",
+ "log",
  "once_cell",
  "ring",
  "rustls-pki-types",
@@ -7813,6 +7814,7 @@ dependencies = [
  "cfg_aliases",
  "httpdate",
  "reqwest 0.13.5",
+ "rustls",
  "sentry-backtrace",
  "sentry-contexts",
  "sentry-core",
@@ -10113,8 +10115,11 @@ dependencies = [
  "base64 0.23.1",
  "log",
  "percent-encoding",
+ "rustls",
+ "rustls-pki-types",
  "ureq-proto",
  "utf8-zero",
+ "webpki-roots",
 ]
 
 [[package]]

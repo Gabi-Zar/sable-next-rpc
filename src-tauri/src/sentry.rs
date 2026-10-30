@@ -156,7 +156,15 @@ fn scrub_log(mut log: sentry::protocol::Log) -> sentry::protocol::Log {
     log
 }
 
-const OLM_ACCOUNT: &str = "matrix_sdk_crypto::olm::account";
+/// Kept in step with `REPORTABLE_WARNINGS` in `src/lib/observability/wasm-log.ts`.
+const REPORTABLE_WARNINGS: [&str; 5] = [
+    // Only a warning in the SDK, but the room keys it carried are lost.
+    "matrix_sdk_crypto::olm::account",
+    "matrix_sdk_crypto::session_manager",
+    "matrix_sdk_crypto::gossiping",
+    "sable_core::utd",
+    "sable_core::calls::keys",
+];
 
 pub fn tracing_filter(
     metadata: &tracing::Metadata<'_>,
@@ -171,8 +179,11 @@ pub fn tracing_filter(
     {
         return EventFilter::Ignore;
     }
-    // Only a warning in the SDK, but the room keys it carried are lost.
-    if metadata.target() == OLM_ACCOUNT && *metadata.level() == tracing::Level::WARN {
+    if *metadata.level() == tracing::Level::WARN
+        && REPORTABLE_WARNINGS
+            .iter()
+            .any(|target| metadata.target().starts_with(target))
+    {
         return EventFilter::Event | EventFilter::Log;
     }
     match *metadata.level() {
@@ -306,12 +317,13 @@ mod tests {
     }
 
     #[test]
-    fn reports_an_undecryptable_to_device_message_but_not_other_sdk_warnings() {
+    fn reports_decryption_failures_but_not_other_sdk_warnings() {
         let transport = record(|| {
             tracing::warn!(
                 target: "matrix_sdk_crypto::olm::account",
                 "Failed to decrypt a non-pre-key message with all available sessions"
             );
+            tracing::warn!(target: "sable_core::utd", "unable to decrypt a message");
             tracing::warn!(target: "matrix_sdk_crypto::machine", "a routine warning");
         });
         let envelopes = transport.0.lock().unwrap();
@@ -320,10 +332,16 @@ mod tests {
             .filter_map(sentry::Envelope::event)
             .collect();
 
-        assert_eq!(events.len(), 1);
+        let messages: Vec<_> = events
+            .iter()
+            .map(|event| event.message.as_deref())
+            .collect();
         assert_eq!(
-            events[0].message.as_deref(),
-            Some("Failed to decrypt a non-pre-key message with all available sessions")
+            messages,
+            [
+                Some("Failed to decrypt a non-pre-key message with all available sessions"),
+                Some("unable to decrypt a message"),
+            ]
         );
     }
 
