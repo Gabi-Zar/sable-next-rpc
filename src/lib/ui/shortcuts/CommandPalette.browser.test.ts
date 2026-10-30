@@ -9,7 +9,10 @@ import { goto } from '#lib/test-support/app-navigation.js';
 vi.mock('$app/state', () => import('#lib/test-support/app-state.js'));
 vi.mock('$app/navigation', () => import('#lib/test-support/app-navigation.js'));
 vi.mock('#lib/i18n.js', () => import('#lib/test-support/i18n.js'));
-vi.mock('#lib/platform/overlay-back.svelte.js', () => ({ holdOverlayBack: () => {} }));
+vi.mock('#lib/platform/overlay-back.svelte.js', () => ({
+  holdOverlayBack: () => {},
+  afterOverlayPops: () => Promise.resolve(),
+}));
 vi.mock('#lib/rooms/room-list.svelte.js', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   useRoomList: () => ({ rooms, unreadFor: roomUnread }),
