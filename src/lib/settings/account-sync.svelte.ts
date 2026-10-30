@@ -21,7 +21,8 @@ export interface SyncedDocument {
   debounceMs?: number;
   enabled?: () => boolean;
   snapshot: () => SyncedSnapshot;
-  adopt: (content: unknown) => boolean;
+  /** `firstSync` is true while no merge base exists yet, so local-only entries should survive the pull. */
+  adopt: (content: unknown, firstSync?: boolean) => boolean;
   merge?: (base: unknown, local: unknown, remote: unknown) => unknown;
   legacy?: { eventType: string; convert: (content: unknown) => unknown };
 }
@@ -196,7 +197,7 @@ export class AccountSync {
     }
 
     state.pulled = true;
-    if (!document.adopt(content)) {
+    if (!document.adopt(content, state.base === null)) {
       state.pending ??= detach(document.snapshot());
       this.#schedule(document, state);
       return;

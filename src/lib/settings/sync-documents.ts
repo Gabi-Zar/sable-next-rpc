@@ -57,8 +57,14 @@ export const settingsDocument: SyncedDocument = {
 
   merge: mergeSettings,
 
-  adopt(content) {
-    const applied = applySettings(content, preferences, customThemes, excludedThemeIds);
+  adopt(content, firstSync) {
+    const keptThemeIds = firstSync
+      ? [...customThemes.themes, ...customThemes.tweaks].map((entry) => entry.id)
+      : [];
+    const applied = applySettings(content, preferences, customThemes, [
+      ...excludedThemeIds,
+      ...keptThemeIds,
+    ]);
     if (applied === null) return false;
 
     applyPreferences(applied.preferences, applied.keys);

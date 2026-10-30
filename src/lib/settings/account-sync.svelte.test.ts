@@ -152,6 +152,18 @@ describe('AccountSync', () => {
     expect(local.value).toBe('remote');
   });
 
+  it('flags the first adoption of a mergeable document as a first sync', async () => {
+    const local = { value: 'local' };
+    const adopt = vi.fn(() => true);
+    const document = stubDocument(local, { adopt, merge: () => null });
+    const { core } = stubCore({ [document.eventType]: { v: 1, value: 'remote' } });
+
+    new AccountSync().start(core, [document]);
+    await vi.runAllTimersAsync();
+
+    expect(adopt).toHaveBeenCalledWith({ v: 1, value: 'remote' }, true);
+  });
+
   it('seeds the account when the event is unusable', async () => {
     const document = stubDocument({ value: 'local' });
     const { core, commands } = stubCore({ [document.eventType]: { v: 99 } });

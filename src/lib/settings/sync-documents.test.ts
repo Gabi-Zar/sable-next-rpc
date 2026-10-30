@@ -19,7 +19,8 @@ import { adoptQuietRooms, quietRooms } from '#lib/rooms/quiet-rooms.svelte.js';
 import { readRecent, writeRecent } from '#lib/emoji/recent-packs.svelte.js';
 import { SpaceSidebar } from '#lib/spaces/sidebar-layout.svelte.js';
 
-import { draftsDocumentFor, workspaceDocument } from './sync-documents';
+import { customThemes, installCustomTheme, replaceCustomThemes } from './custom-themes.svelte';
+import { draftsDocumentFor, settingsDocument, workspaceDocument } from './sync-documents';
 
 const draftsDocument = draftsDocumentFor('');
 
@@ -98,6 +99,41 @@ describe('the workspace document', () => {
     writeRecent([]);
     adoptRecentGifs([gif]);
     expect(document.adopt(null)).toBe(false);
+  });
+});
+
+describe('the settings document', () => {
+  const noThemes = {
+    themes: [],
+    tweaks: [],
+    lightThemeId: null,
+    darkThemeId: null,
+    enabledTweakIds: [],
+  };
+
+  afterEach(() => {
+    replaceCustomThemes(noThemes);
+  });
+
+  it('keeps the installed themes when a newly added account holds none', () => {
+    const { content } = settingsDocument.snapshot();
+    const empty = { ...(content as object), themes: noThemes };
+    installCustomTheme({ id: 'mine', name: 'Mine', kind: 'dark', css: 'body {}' });
+
+    expect(settingsDocument.adopt(empty, true)).toBe(true);
+
+    expect(customThemes.themes.map((theme) => theme.id)).toEqual(['mine']);
+    expect(customThemes.darkThemeId).toBe('mine');
+  });
+
+  it('lets an account that was synced before remove themes', () => {
+    const { content } = settingsDocument.snapshot();
+    const empty = { ...(content as object), themes: noThemes };
+    installCustomTheme({ id: 'mine', name: 'Mine', kind: 'dark', css: 'body {}' });
+
+    expect(settingsDocument.adopt(empty, false)).toBe(true);
+
+    expect(customThemes.themes).toEqual([]);
   });
 });
 
