@@ -642,7 +642,7 @@ const DEFAULTS: Preferences = {
   richTextComposer: false,
   composerSpellcheck: true,
   composerAutocapitalize: true,
-  emoticonToEmoji: true,
+  emoticonToEmoji: false,
   composerGifButton: true,
   composerStickerButton: true,
   composerEmoteButton: true,

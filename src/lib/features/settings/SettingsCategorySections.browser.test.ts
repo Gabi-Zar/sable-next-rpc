@@ -21,7 +21,7 @@ import SettingsCategorySections from './SettingsCategorySections.svelte';
 afterEach(async () => {
   await page.viewport(414, 800);
   setPreference('textScale', 1);
-  setPreference('emoticonToEmoji', true);
+  setPreference('emoticonToEmoji', false);
   localStorage.removeItem('sable-preferences');
 });
 
@@ -56,15 +56,15 @@ test('the media preview setting is offered in privacy settings', async () => {
   await expect.element(screen.getByRole('switch', { name: 'Avatars on invites' })).toBeChecked();
 });
 
-test('the emoticon conversion setting is on by default and persists its choice', async () => {
+test('the emoticon conversion setting is off by default and persists its choice', async () => {
   const category = settingsCategories.find((entry) => entry.id === 'composer');
   if (!category) throw new Error('the composer category is missing');
   const screen = await render(SettingsCategorySections, { category });
   const toggle = screen.getByRole('switch', { name: 'Convert emoticons to emoji' });
 
-  await expect.element(toggle).toBeChecked();
-  await userEvent.click(toggle);
   await expect.element(toggle).not.toBeChecked();
+  await userEvent.click(toggle);
+  await expect.element(toggle).toBeChecked();
   await expect
     .poll(() => {
       const stored = JSON.parse(localStorage.getItem('sable-preferences') ?? '{}') as {
@@ -72,7 +72,7 @@ test('the emoticon conversion setting is on by default and persists its choice',
       };
       return stored.emoticonToEmoji;
     })
-    .toBe(false);
+    .toBe(true);
 });
 
 test('mobile: a dropdown opens as a sheet of choices', async () => {
