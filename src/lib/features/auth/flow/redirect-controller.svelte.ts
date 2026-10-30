@@ -9,7 +9,14 @@ import type { AuthIntent, LoginFlowsView, RegistrationResultView } from '#src/ge
 import type { CoreClient } from '#lib/core/client.svelte.js';
 import { t } from '#lib/i18n.js';
 import { deliversDeepLinks } from '#lib/platform/deep-links.js';
-import { openExternalAuthUrl, startInAppAuthSession } from '#lib/platform/external-auth.js';
+import {
+  openExternalAuthUrl,
+  openExternalAuthWindow,
+  isDesktopAuthClient,
+  openSystemAuthUrl,
+  startInAppAuthSession,
+  type ExternalAuthWindow,
+} from '#lib/platform/external-auth.js';
 import { SvelteSet, SvelteURL } from 'svelte/reactivity';
 import {
   authenticationError,
@@ -33,13 +40,13 @@ interface RedirectControllerOptions {
   onNavigateRegistrationRecovery: () => Promise<void>;
 }
 
-export function reserveRedirectPopup(intent: RedirectIntent, homeserver: string): Window | null {
-  const popup = window.open(
-    'about:blank',
-    `sable-${intent}-${crypto.randomUUID()}`,
-    'popup,width=520,height=720'
-  );
-  if (!popup) return null;
+function reserveRedirectPopup(
+  intent: RedirectIntent,
+  homeserver: string
+): ExternalAuthWindow | null {
+  const browser = openExternalAuthWindow(`sable-${intent}-${crypto.randomUUID()}`);
+  const popup = browser?.window;
+  if (!popup) return browser;
 
   const message = t('auth.redirectingTo', { name: homeserver });
   popup.document.title = message;
@@ -49,11 +56,7 @@ export function reserveRedirectPopup(intent: RedirectIntent, homeserver: string)
   paragraph.style.cssText =
     'margin:0;min-height:100vh;display:grid;place-items:center;padding:2rem;text-align:center;font:1rem/1.5 system-ui,sans-serif';
   popup.document.body.append(paragraph);
-  return popup;
-}
-
-export function closeRedirectPopup(popup: Window | null): void {
-  popup?.close();
+  return browser;
 }
 
 export class RedirectController {
@@ -64,8 +67,11 @@ export class RedirectController {
   loginError = $state<string | null>(null);
   registrationError = $state<string | null>(null);
   isCallbackWindow = $state(false);
+  systemBrowserUrl = $state<string | null>(null);
+  isOpeningSystemBrowser = $state(false);
 
-  private popup: Window | null = null;
+  private popup: ExternalAuthWindow | null = null;
+  private fallbackPopup: Window | null = null;
   private removeFallbackListener: (() => void) | null = null;
   private readonly authChannels = new SvelteSet<BroadcastChannel>();
 
@@ -76,15 +82,17 @@ export class RedirectController {
     id?: string,
     intent: RedirectIntent = 'register'
   ): Promise<void> {
-    if (this.isLaunching) return;
+    if (this.isLaunching || this.isOpeningSystemBrowser) return;
+    this.systemBrowserUrl = null;
     this.loginError = null;
     this.registrationError = null;
     this.pendingIntent = intent;
     this.isLaunching = true;
-    const reservedPopup = deliversDeepLinks()
-      ? null
-      : reserveRedirectPopup(intent, this.options.getHomeserver().trim());
-    if (!deliversDeepLinks() && !reservedPopup) {
+    const closingPrevious = this.popup?.close();
+    for (const channel of this.authChannels) channel.close();
+    this.authChannels.clear();
+    const reservedPopup = reserveRedirectPopup(intent, this.options.getHomeserver().trim());
+    if (!reservedPopup) {
       this.setError(intent, t('auth.allowPopups'));
       this.isLaunching = false;
       return;
@@ -93,6 +101,7 @@ export class RedirectController {
     this.popup = reservedPopup;
     let navigationStarted = false;
     try {
+      if (closingPrevious) await closingPrevious;
       const flows = await this.options.validateHomeserver();
       if (!flows) {
         this.setError(intent, this.options.getValidationError() ?? t('errors.homeserverNotFound'));
@@ -115,12 +124,15 @@ export class RedirectController {
               intent === 'login' ? this.options.getReauthAccountId?.() : undefined
             );
       if (deliversDeepLinks()) {
+        if (isDesktopAuthClient()) this.systemBrowserUrl = authorizationUrl;
         const callbackUrl = await startInAppAuthSession(authorizationUrl, callbackUri);
-        if (callbackUrl === null) await openExternalAuthUrl(authorizationUrl);
-        else void this.complete(callbackUrl);
+        if (callbackUrl === null) {
+          navigationStarted = true;
+          await reservedPopup.navigate(authorizationUrl, callbackUri);
+        } else await this.complete(callbackUrl);
       } else {
-        if (!this.popup) return;
-        const popup = this.popup;
+        const popup = reservedPopup.window;
+        if (!popup) return;
         const channel = new BroadcastChannel(
           callbackChannelName(type === 'oidc' ? authorizationUrl : callbackUri, popup.name)
         );
@@ -132,14 +144,15 @@ export class RedirectController {
           this.authChannels.delete(channel);
         };
         navigationStarted = true;
-        popup.location.replace(authorizationUrl);
+        await reservedPopup.navigate(authorizationUrl, callbackUri);
       }
     } catch (value) {
+      navigationStarted = false;
       logAuthenticationFailure(`${type}_${intent}_start`, value);
       this.setError(intent, value);
     } finally {
-      if (this.popup && !navigationStarted) {
-        this.popup.close();
+      if (!navigationStarted) {
+        void reservedPopup.close();
         this.popup = null;
       }
       this.isLaunching = false;
@@ -150,6 +163,9 @@ export class RedirectController {
     if (this.isCompleting) return;
     const type = redirectLoginType(callbackUrl);
     if (!type) return;
+    this.systemBrowserUrl = null;
+    void this.popup?.close();
+    this.popup = null;
     this.isCompleting = true;
     this.pendingOnboardingTransition = this.pendingIntent === 'register';
     this.loginError = null;
@@ -184,7 +200,7 @@ export class RedirectController {
       this.registrationError = registrationError(value);
       return;
     }
-    this.popup = deliversDeepLinks()
+    this.fallbackPopup = deliversDeepLinks()
       ? null
       : window.open(
           fallback.fallback_url,
@@ -197,22 +213,38 @@ export class RedirectController {
       });
       return;
     }
-    if (!this.popup) {
+    if (!this.fallbackPopup) {
       this.registrationError = t('auth.allowPopups');
       return;
     }
 
-    const popup = this.popup;
+    const popup = this.fallbackPopup;
     const listener = (event: MessageEvent<unknown>) => {
       if (event.origin !== expectedOrigin || event.source !== popup || event.data !== 'authDone')
         return;
       this.removeFallbackListener?.();
       this.removeFallbackListener = null;
       popup.close();
-      this.popup = null;
+      this.fallbackPopup = null;
       onComplete();
     };
     this.removeFallbackListener = on(window, 'message', listener);
+  }
+
+  async openInBrowser(): Promise<void> {
+    const url = this.systemBrowserUrl;
+    if (!url || this.isOpeningSystemBrowser || this.isCompleting) return;
+    this.isOpeningSystemBrowser = true;
+    try {
+      await openSystemAuthUrl(url);
+      await this.popup?.close();
+      this.popup = null;
+    } catch (value) {
+      logAuthenticationFailure('system_browser_open', value);
+      this.setError(this.pendingIntent, value);
+    } finally {
+      this.isOpeningSystemBrowser = false;
+    }
   }
 
   markCallbackWindow(): void {
@@ -220,10 +252,13 @@ export class RedirectController {
   }
 
   cleanup(): void {
+    this.systemBrowserUrl = null;
     for (const channel of this.authChannels) channel.close();
     this.authChannels.clear();
-    this.popup?.close();
+    void this.popup?.close();
     this.popup = null;
+    this.fallbackPopup?.close();
+    this.fallbackPopup = null;
     this.removeFallbackListener?.();
     this.removeFallbackListener = null;
   }

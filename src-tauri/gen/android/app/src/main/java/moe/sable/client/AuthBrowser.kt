@@ -21,17 +21,22 @@ class AuthBrowser(private val activity: Activity) {
   private var connection: CustomTabsServiceConnection? = null
   private var pending: ((Result<Unit>) -> Unit)? = null
   private var timeout: Runnable? = null
+  private var browserId: String? = null
+  private var launched = false
 
-  fun open(uri: Uri, complete: (Result<Unit>) -> Unit) {
+  fun open(id: String, uri: Uri, complete: (Result<Unit>) -> Unit) {
     close()
     if (uri.scheme !in listOf("https", "http") || uri.host.isNullOrEmpty()) {
       complete(Result.failure(IllegalArgumentException("Invalid authentication URL")))
       return
     }
     pending = complete
+    browserId = id
     val packageName = CustomTabsClient.getPackageName(activity, null)
     if (packageName == null) {
-      launch(uri, null, null)
+      pending = null
+      close()
+      complete(Result.failure(IllegalStateException("No in-app browser is available")))
       return
     }
 
@@ -42,7 +47,8 @@ class AuthBrowser(private val activity: Activity) {
         client.warmup(0)
         val session = client.newSession(object : CustomTabsCallback() {
           override fun onNavigationEvent(event: Int, extras: Bundle?) {
-            if (event == TAB_HIDDEN && connection === connected) close()
+            // Hidden tabs can still be open behind another activity.
+            if (event == TAB_HIDDEN && connection === connected) disconnect()
           }
         })
         if (session == null) disconnect()
@@ -50,7 +56,9 @@ class AuthBrowser(private val activity: Activity) {
       }
 
       override fun onServiceDisconnected(name: ComponentName) {
-        if (connection === this) close()
+        if (connection === this) {
+          if (pending != null) close() else disconnect()
+        }
       }
     }
     connection = service
@@ -86,18 +94,33 @@ class AuthBrowser(private val activity: Activity) {
         )
       }
       tab.launchUrl(activity, uri)
+      launched = true
     }
     if (result.isFailure) close()
     complete(result)
   }
 
   fun close() {
+    browserId = null
+    launched = false
     timeout?.let(handler::removeCallbacks)
     timeout = null
     disconnect()
     val complete = pending
     pending = null
     complete?.invoke(Result.failure(IllegalStateException("Authentication browser closed")))
+  }
+
+  fun dismiss(id: String) {
+    if (browserId != id) return
+    val wasLaunched = launched
+    close()
+    if (wasLaunched) {
+      // The Custom Tab is above MainActivity in the same task.
+      activity.startActivity(Intent(activity, MainActivity::class.java).apply {
+        addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+      })
+    }
   }
 
   private fun disconnect() {

@@ -32,6 +32,7 @@ import type {
 } from '../../src/lib/platform/file-dialog-types';
 
 import { deepLinksIn, deepLinkSchemes } from './deep-links';
+import { AuthWindows } from './auth-window';
 import { registerContextMenu } from './context-menu';
 import { claimSchemes } from './linux-schemes';
 import { openExternal, originOf } from './navigation';
@@ -292,6 +293,45 @@ function deliverDeepLinks(urls: string[]): void {
   if (mainWindow && pageListening) mainWindow.webContents.send('sable-deep-links', urls);
   else pendingDeepLinks.push(...urls);
 }
+
+const authWindows = new AuthWindows((url) => {
+  deliverDeepLinks([url]);
+});
+
+ipcMain.handle('sable-auth-open', async (event, id: string, url: string, callbackUri?: string) => {
+  if (!isAppFrame(event.senderFrame) || event.sender !== mainWindow?.webContents) {
+    throw new Error('Invalid authentication origin');
+  }
+  if (
+    typeof id !== 'string' ||
+    typeof url !== 'string' ||
+    (callbackUri !== undefined && typeof callbackUri !== 'string')
+  ) {
+    throw new Error('Invalid authentication request');
+  }
+  await authWindows.open(mainWindow, id, url, callbackUri);
+});
+
+ipcMain.handle('sable-auth-close', (event, id: string) => {
+  if (
+    isAppFrame(event.senderFrame) &&
+    event.sender === mainWindow?.webContents &&
+    typeof id === 'string'
+  ) {
+    authWindows.close(id);
+  }
+});
+
+ipcMain.handle('sable-auth-external', async (event, url: string) => {
+  if (!isAppFrame(event.senderFrame) || event.sender !== mainWindow?.webContents) {
+    throw new Error('Invalid authentication origin');
+  }
+  const parsed = typeof url === 'string' ? URL.parse(url) : null;
+  if (!parsed || !['http:', 'https:'].includes(parsed.protocol)) {
+    throw new Error('Authentication requires an HTTP or HTTPS URL');
+  }
+  await shell.openExternal(url);
+});
 
 ipcMain.handle('sable-take-deep-links', (event) =>
   isAppFrame(event.senderFrame) ? pendingDeepLinks.splice(0) : []

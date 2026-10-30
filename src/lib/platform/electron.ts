@@ -33,6 +33,9 @@ export interface ElectronBridge {
   applySettings(settings: ElectronSettings): void;
   setTelemetryConsent(enabled: boolean): void;
   takeDeepLinks(): Promise<string[]>;
+  openAuthWindow(id: string, url: string, callbackUri?: string): Promise<void>;
+  closeAuthWindow(id: string): Promise<void>;
+  openAuthInSystemBrowser(url: string): Promise<void>;
   onDeepLinks(callback: (urls: string[]) => void): () => void;
   screenAudioApps(): Promise<ScreenAudioListing>;
   startScreenAudio(selection: Exclude<ScreenAudioChoice, { kind: 'none' }>): Promise<string>;

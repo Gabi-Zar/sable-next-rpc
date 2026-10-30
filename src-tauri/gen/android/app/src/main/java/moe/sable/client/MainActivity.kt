@@ -240,17 +240,24 @@ class MainActivity : TauriActivity() {
 
     @Keep
     @JvmStatic
-    fun openAuthUrlNative(url: String) {
+    fun openAuthUrlNative(id: String, url: String) {
       val activity = checkNotNull(instance) { "Activity is unavailable" }
       val result = CompletableFuture<Unit>()
       activity.runOnUiThread {
         runCatching {
-          activity.authBrowser.open(Uri.parse(url)) { opened ->
+          activity.authBrowser.open(id, Uri.parse(url)) { opened ->
             opened.fold(result::complete) { result.completeExceptionally(it) }
           }
         }.onFailure { result.completeExceptionally(it) }
       }
       result.get(10, TimeUnit.SECONDS)
+    }
+
+    @Keep
+    @JvmStatic
+    fun closeAuthWindowNative(id: String) {
+      val activity = instance ?: return
+      activity.runOnUiThread { activity.authBrowser.dismiss(id) }
     }
 
     @Keep

@@ -1,5 +1,6 @@
 <script lang="ts">
   import PageTitle from '#lib/ui/primitives/PageTitle.svelte';
+  import Button from '#lib/ui/primitives/Button.svelte';
   import QrLinkDialog from '#lib/features/qr-login/QrLinkDialog.svelte';
   import '#lib/features/auth/shared/auth-card.css';
   import { goto } from '$app/navigation';
@@ -192,6 +193,7 @@
       flow.homeserver = urlHomeserver;
       registration.registrationToken = urlToken;
       if (homeserverChanged) {
+        redirect.cleanup();
         flow.resetValidation();
         login.resetForHomeserverChange();
         registration.error = null;
@@ -336,6 +338,7 @@
     isCheckingHomeserver={flow.isCheckingHomeserver}
     {isLaunchingLogin}
     onClearHomeserverValidation={() => {
+      redirect.cleanup();
       invalidateAfter(0);
       login.clearHomeserverValidation();
     }}
@@ -357,6 +360,22 @@
     onCancel={isAddingAccount ? () => goto(resolve('home')) : undefined}
     followUserServer={!reauthAccountId()}
   />
+  {#if redirect.pendingIntent === 'login'}
+    {@render browserFallback()}
+  {/if}
+{/snippet}
+
+{#snippet browserFallback()}
+  {#if redirect.systemBrowserUrl}
+    <p class="browser-fallback">{i18n.t('auth.browserFallbackHint')}</p>
+    <Button
+      block
+      loading={redirect.isOpeningSystemBrowser}
+      onclick={() => void redirect.openInBrowser()}
+    >
+      {i18n.t('auth.openInBrowser')}
+    </Button>
+  {/if}
 {/snippet}
 
 <AuthRedirectBridge
@@ -447,6 +466,7 @@
               invalidRegistrationField={registration.invalidField}
               registrationFieldError={registration.fieldError}
               onHomeserverInput={(value: string) => {
+                redirect.cleanup();
                 flow.homeserverInput(value);
                 login.resetForHomeserverChange();
                 registration.resetForHomeserverChange();
@@ -485,6 +505,9 @@
                 registration.setConfirmPassword(value);
               }}
             />
+            {#if redirect.pendingIntent === 'register'}
+              {@render browserFallback()}
+            {/if}
           {/if}
         </AuthStageCard>
       {/if}
@@ -507,3 +530,11 @@
     void openSetup();
   }}
 />
+
+<style>
+  .browser-fallback {
+    color: var(--sec-main);
+    font-size: var(--font-size-small);
+    margin: var(--space-300) 0 var(--space-200);
+  }
+</style>

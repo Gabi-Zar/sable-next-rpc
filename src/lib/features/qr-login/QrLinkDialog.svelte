@@ -6,7 +6,12 @@
 
   import { useCoreClient } from '#lib/core/context.js';
   import { i18n } from '#lib/i18n.js';
-  import { openExternalAuthUrl } from '#lib/platform/external-auth.js';
+  import {
+    openExternalAuthWindow,
+    isDesktopAuthClient,
+    openSystemAuthUrl,
+    type ExternalAuthWindow,
+  } from '#lib/platform/external-auth.js';
   import Alert from '#lib/ui/primitives/Alert.svelte';
   import Button from '#lib/ui/primitives/Button.svelte';
   import DialogFrame from '#lib/ui/primitives/DialogFrame.svelte';
@@ -35,7 +40,10 @@
   const checkCodeId = $props.id();
   let checkCode = $state('');
   let openingApproval = $state(false);
+  let openingSystemBrowser = $state(false);
+  const desktopAuth = isDesktopAuthClient();
   let approvalError = $state(false);
+  let approvalBrowser: ExternalAuthWindow | null = null;
 
   $effect(() => {
     if (!open) return;
@@ -44,10 +52,17 @@
       checkCode = '';
       approvalError = false;
     });
-    return flow.listen();
+    const stop = flow.listen();
+    return () => {
+      closeApproval();
+      stop();
+    };
   });
 
   let progress = $derived(flow.progress);
+  $effect(() => {
+    if (progress?.stage !== 'waiting_for_auth') closeApproval();
+  });
   let grant = $derived(mode === 'grant');
   let validCheckCode = $derived(/^\d{2}$/.test(checkCode));
   let title = $derived(i18n.t(grant ? 'qrLogin.titleGrant' : 'qrLogin.titleLogin'));
@@ -113,10 +128,12 @@
   }
 
   function close(): void {
+    closeApproval();
     open = false;
   }
 
   function restart(): void {
+    closeApproval();
     flow.reset();
     checkCode = '';
   }
@@ -130,12 +147,38 @@
     openingApproval = true;
     approvalError = false;
     try {
-      await openExternalAuthUrl(url);
+      const previous = approvalBrowser;
+      const browser = openExternalAuthWindow(`sable-qr-${crypto.randomUUID()}`);
+      if (!browser) throw new Error('Authentication popup was blocked');
+      approvalBrowser = browser;
+      await previous?.close();
+      await browser.navigate(url);
     } catch (error) {
+      closeApproval();
       console.warn('[sable qr] approval browser failed', error);
       approvalError = true;
     } finally {
       openingApproval = false;
+    }
+  }
+
+  function closeApproval(): void {
+    void approvalBrowser?.close();
+    approvalBrowser = null;
+  }
+
+  async function openSystemApproval(url: string): Promise<void> {
+    if (openingSystemBrowser) return;
+    openingSystemBrowser = true;
+    approvalError = false;
+    try {
+      await openSystemAuthUrl(url);
+      closeApproval();
+    } catch (error) {
+      console.warn('[sable qr] system browser failed', error);
+      approvalError = true;
+    } finally {
+      openingSystemBrowser = false;
     }
   }
 </script>
@@ -230,11 +273,20 @@
         <Button
           variant="primary"
           class="qr-action"
-          disabled={openingApproval}
+          disabled={openingApproval || openingSystemBrowser}
           onclick={() => void openApproval(uri)}
         >
           {i18n.t('qrLogin.openApproval')}
         </Button>
+        {#if desktopAuth}
+          <Button
+            class="qr-action"
+            loading={openingSystemBrowser}
+            onclick={() => void openSystemApproval(uri)}
+          >
+            {i18n.t('auth.openInBrowser')}
+          </Button>
+        {/if}
       </div>
     {:else if progress.stage === 'starting' || progress.stage === 'syncing_secrets' || progress.stage === 'signed_in'}
       <p class="wait" aria-hidden="true">{announcement}</p>

@@ -4,6 +4,8 @@
 
 #[cfg(target_os = "linux")]
 mod app_dirs;
+#[cfg(desktop)]
+mod auth_window;
 #[cfg(any(all(feature = "cef", target_os = "linux"), test))]
 mod deep_link_delivery;
 #[cfg(any(all(feature = "cef", target_os = "linux"), all(test, unix)))]
@@ -533,6 +535,9 @@ fn set_tray_unread(app: AppHandle<BrowserEngine>, unread: bool) -> Result<(), St
 
 #[cfg(desktop)]
 fn hide_to_tray_on_close(window: &tauri::Window<BrowserEngine>, event: &tauri::WindowEvent) {
+    if window.label() != "main" {
+        return;
+    }
     match event {
         tauri::WindowEvent::CloseRequested { api, .. } => {
             if tray::hides_to_tray(window.app_handle()) {
@@ -1046,6 +1051,10 @@ pub fn run() {
             upload_media,
             upload_media_base64,
             open_external_url,
+            #[cfg(desktop)]
+            auth_window::open_auth_window,
+            #[cfg(desktop)]
+            auth_window::close_auth_window,
             #[cfg(target_os = "linux")]
             start_screen_audio,
             #[cfg(target_os = "windows")]
@@ -1100,8 +1109,12 @@ pub fn run() {
             ios::save_media_to_photos,
             #[cfg(target_os = "ios")]
             ios::open_in_app_auth_url,
+            #[cfg(target_os = "ios")]
+            ios::close_in_app_auth_window,
             #[cfg(target_os = "android")]
             mobile::open_in_app_auth_url,
+            #[cfg(target_os = "android")]
+            mobile::close_in_app_auth_window,
             #[cfg(target_os = "ios")]
             ios::haptic_feedback,
             #[cfg(target_os = "ios")]

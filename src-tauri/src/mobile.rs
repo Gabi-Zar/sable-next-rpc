@@ -41,7 +41,7 @@ pub extern "system" fn Java_moe_sable_client_AppLifecycle_nativeActivityChanged(
 }
 
 #[tauri::command]
-pub async fn open_in_app_auth_url(url: String) -> Result<(), String> {
+pub async fn open_in_app_auth_url(id: String, url: String) -> Result<(), String> {
     let parsed = tauri::Url::parse(&url).map_err(|_| "invalid authentication URL")?;
     if !matches!(parsed.scheme(), "http" | "https") || parsed.host_str().is_none() {
         return Err("authentication requires an HTTP or HTTPS URL".into());
@@ -52,12 +52,39 @@ pub async fn open_in_app_auth_url(url: String) -> Result<(), String> {
             .get()
             .ok_or("activity class not initialized")?;
         vm.attach_current_thread(|env| {
+            let id = env.new_string(id)?;
             let url = env.new_string(parsed.as_str())?;
             let result = env.call_static_method(
                 class,
                 jni_str!("openAuthUrlNative"),
+                jni_sig!("(Ljava/lang/String;Ljava/lang/String;)V"),
+                &[JValue::Object(&id), JValue::Object(&url)],
+            );
+            if result.is_err() {
+                env.exception_clear();
+            }
+            result.map(|_| ())
+        })
+        .map_err(|error| error.to_string())
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
+
+#[tauri::command]
+pub async fn close_in_app_auth_window(id: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let vm = JAVA_VM.get().ok_or("java vm not initialized")?;
+        let class = MAIN_ACTIVITY
+            .get()
+            .ok_or("activity class not initialized")?;
+        vm.attach_current_thread(|env| {
+            let id = env.new_string(id)?;
+            let result = env.call_static_method(
+                class,
+                jni_str!("closeAuthWindowNative"),
                 jni_sig!("(Ljava/lang/String;)V"),
-                &[JValue::Object(&url)],
+                &[JValue::Object(&id)],
             );
             if result.is_err() {
                 env.exception_clear();

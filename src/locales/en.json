@@ -1393,6 +1393,8 @@
     "unableToStart": "Unable to start Sable.",
     "chooseSignInMethod": "Choose one of the sign-in methods offered by this homeserver.",
     "allowPopups": "Allow pop-ups to sign in with this homeserver.",
+    "openInBrowser": "Open in browser",
+    "browserFallbackHint": "If sign-in is blocked, open it in your browser and return here when you're done.",
     "redirectingTo": "Redirecting to {{name}}…",
     "enterHomeserver": "Enter a homeserver.",
     "enterUsername": "Enter your username.",

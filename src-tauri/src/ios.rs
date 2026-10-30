@@ -19,7 +19,11 @@ use objc2_photos::{
 };
 
 #[tauri::command]
-pub async fn open_in_app_auth_url(window: tauri::WebviewWindow, url: String) -> Result<(), String> {
+pub async fn open_in_app_auth_url(
+    window: tauri::WebviewWindow,
+    id: String,
+    url: String,
+) -> Result<(), String> {
     let parsed = tauri::Url::parse(&url).map_err(|_| "invalid authentication URL")?;
     if !matches!(parsed.scheme(), "http" | "https") || parsed.host_str().is_none() {
         return Err("authentication requires an HTTP or HTTPS URL".into());
@@ -39,6 +43,7 @@ pub async fn open_in_app_auth_url(window: tauri::WebviewWindow, url: String) -> 
                 return;
             };
             let value = NSString::from_str(parsed.as_str());
+            let id = NSString::from_str(&id);
             let Some(url) = NSURL::URLWithString(&value) else {
                 return;
             };
@@ -47,6 +52,7 @@ pub async fn open_in_app_auth_url(window: tauri::WebviewWindow, url: String) -> 
                 let controller: &AnyObject = &*webview.view_controller().cast();
                 let _: () = msg_send![class,
                     presentURL: &*url,
+                    id: &*id,
                     from: controller,
                     completion: &*completion
                 ];
@@ -61,6 +67,23 @@ pub async fn open_in_app_auth_url(window: tauri::WebviewWindow, url: String) -> 
     } else {
         Err("authentication browser could not be presented".into())
     }
+}
+
+#[tauri::command]
+pub async fn close_in_app_auth_window(
+    window: tauri::WebviewWindow,
+    id: String,
+) -> Result<(), String> {
+    window
+        .with_webview(move |_| {
+            if let Some(class) = AnyClass::get(c"SableAuthBrowser") {
+                let id = NSString::from_str(&id);
+                unsafe {
+                    let _: () = msg_send![class, dismissWithId: &*id];
+                }
+            }
+        })
+        .map_err(|error| error.to_string())
 }
 
 pub(crate) fn watch_network(core: &std::sync::Arc<sable_core::Core>) -> Result<(), String> {
