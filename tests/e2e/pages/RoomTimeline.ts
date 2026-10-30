@@ -47,13 +47,6 @@ export class RoomTimeline {
     return this.page.locator(`[data-event-id="${eventId}"]`);
   }
 
-  /** Diffs address rows by index, which a prepend shifts under the test. */
-  async indexOfEvent(eventId: string): Promise<number> {
-    const attribute = await this.itemByEventId(eventId).getAttribute('data-index');
-    if (attribute === null) throw new Error(`no rendered row for ${eventId}`);
-    return Number(attribute);
-  }
-
   itemByIndex(index: number): Locator {
     return this.page.locator(`[data-index="${String(index)}"]`);
   }
@@ -238,7 +231,14 @@ export class RoomTimeline {
   }
 
   async anchorAt(nth: number, { visibleOnly = false } = {}): Promise<TimelineAnchor> {
-    const locator = visibleOnly ? this.visibleItems().nth(nth) : this.items.nth(nth);
+    return this.anchorOf(visibleOnly ? this.visibleItems().nth(nth) : this.items.nth(nth));
+  }
+
+  anchorOfItem(itemId: string): Promise<TimelineAnchor> {
+    return this.anchorOf(this.itemById(itemId));
+  }
+
+  private anchorOf(locator: Locator): Promise<TimelineAnchor> {
     return locator.evaluate((node) => {
       const itemId = node.getAttribute('data-item-id');
       if (!itemId) throw new Error('timeline item has no data-item-id');

@@ -62,6 +62,13 @@ export class FakeCoreDriver {
     );
   }
 
+  indexOfTimelineItem(subscription: number, itemId: string): Promise<number> {
+    return this.page.evaluate(
+      ({ subscription, itemId }) => window.__e2eTimelineIndexOf(subscription, itemId),
+      { subscription, itemId }
+    );
+  }
+
   async setTimelineItemById(
     subscription: number,
     itemId: string,
@@ -69,14 +76,12 @@ export class FakeCoreDriver {
   ): Promise<void> {
     await this.page.evaluate(
       ({ subscription, itemId, value }) => {
-        const index = document
-          .querySelector(`[data-item-id="${itemId}"]`)
-          ?.getAttribute('data-index');
-        if (index === null || index === undefined) throw new Error(`no rendered row for ${itemId}`);
+        const index = window.__e2eTimelineIndexOf(subscription, itemId);
+        if (index < 0) throw new Error(`no core item ${itemId} in subscription ${subscription}`);
         window.__e2eEmitTimelineEvent({
           type: 'timeline_diff',
           subscription,
-          diffs: [{ op: 'set', index: Number(index), value }],
+          diffs: [{ op: 'set', index, value }],
         });
       },
       { subscription, itemId, value }

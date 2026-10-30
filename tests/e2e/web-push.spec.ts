@@ -1,9 +1,9 @@
 import type { BrowserContext, Page, Worker } from '@playwright/test';
-import { expect, test } from './fixtures/test';
+import { expect, test, SIGNED_OUT } from './fixtures/test';
 
 // The headless shell has no notification platform and crashes on
 // showNotification; Chrome's own headless mode has one.
-test.use({ channel: 'chromium' });
+test.use({ channel: 'chromium', storageState: SIGNED_OUT });
 
 test.beforeEach(async ({ page }) => {
   test.setTimeout(240_000);
@@ -107,9 +107,10 @@ test('a push shows a notification naming the room the app cached', async ({
   page,
   app,
   context,
-  admin,
+  freshLogin,
 }) => {
   await context.grantPermissions(['notifications']);
+  const admin = await freshLogin();
 
   const roomName = `Pushed ${String(Date.now())}`;
   const roomId = await admin.createRoom({ name: roomName });
@@ -150,10 +151,11 @@ test('a push for an invitation reads as an invitation with accept and decline', 
   page,
   app,
   context,
-  admin,
+  freshLogin,
   guest,
 }) => {
   await context.grantPermissions(['notifications']);
+  const admin = await freshLogin();
 
   const roomName = `Invited ${String(Date.now())}`;
   const roomId = await guest.createRoom({ name: roomName, invite: [admin.userId] });
@@ -195,9 +197,10 @@ test('a push saying everything is read closes the notification it had shown', as
   page,
   app,
   context,
-  admin,
+  freshLogin,
 }) => {
   await context.grantPermissions(['notifications']);
+  const admin = await freshLogin();
 
   const roomName = `Read ${String(Date.now())}`;
   const roomId = await admin.createRoom({ name: roomName });

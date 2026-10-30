@@ -38,7 +38,8 @@ export default defineConfig({
     {
       name: 'chromium',
       dependencies: ['setup'],
-      testIgnore: /(?:global\.(?:setup|teardown)|v1-migration\.spec|ws-server\.spec|\.test)\.ts/,
+      testIgnore:
+        /(?:global\.(?:setup|teardown)|v1-migration\.spec|drag-list\.spec|ws-server\.spec|\.test)\.ts/,
       use: devices['Desktop Chrome'],
     },
     {
@@ -54,6 +55,12 @@ export default defineConfig({
       name: 'migration',
       dependencies: ['setup'],
       testMatch: 'v1-migration.spec.ts',
+      use: { ...devices['Desktop Chrome'], baseURL: migrationOrigin },
+    },
+    {
+      name: 'drag-list',
+      dependencies: ['setup'],
+      testMatch: 'drag-list.spec.ts',
       use: { ...devices['Desktop Chrome'], baseURL: migrationOrigin },
     },
     {

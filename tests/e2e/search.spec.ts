@@ -36,7 +36,7 @@ function searchField(page: Page) {
 }
 
 function orderControl(page: Page) {
-  return page.getByRole('button', { name: en.search.order });
+  return page.getByRole('combobox', { name: en.search.order });
 }
 
 async function chooseOrder(page: Page, label: string): Promise<void> {

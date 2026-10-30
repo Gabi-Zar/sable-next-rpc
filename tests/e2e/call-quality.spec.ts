@@ -19,8 +19,9 @@ for (const width of [1280, 412]) {
       ['Screen sharing maximum bitrate', '1000 kbps', 'Automatic'],
       ['Screen sharing codec', 'VP9', 'Automatic'],
     ];
+    const controlRole = width < 800 ? 'button' : 'combobox';
     for (const [name, value, initial] of choices) {
-      const control = page.getByRole('button', { name, exact: true });
+      const control = page.getByRole(controlRole, { name, exact: true });
       await expect(control).toHaveText(initial);
       await control.click();
       await page.getByRole(width < 800 ? 'radio' : 'option', { name: value, exact: true }).click();
@@ -29,7 +30,7 @@ for (const width of [1280, 412]) {
 
     await page.reload();
     for (const [name, value] of choices) {
-      const control = page.getByRole('button', { name, exact: true });
+      const control = page.getByRole(controlRole, { name, exact: true });
       await expect(control).toHaveText(value);
       await control.scrollIntoViewIfNeeded();
       await expect(control).toBeInViewport();

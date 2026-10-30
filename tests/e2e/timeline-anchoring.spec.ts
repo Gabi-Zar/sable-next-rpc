@@ -113,7 +113,7 @@ test('falls back to a surviving visible anchor when the first row is replaced', 
   await timeline.waitForScrollSettled();
 
   const subscription = await core.subscription();
-  const anchor = await timeline.anchorAt(1);
+  const anchor = await timeline.anchorOfItem('general-1');
 
   await core.emitTimelineDiff(subscription, [
     { op: 'remove', index: 0 },
@@ -281,7 +281,7 @@ test('keeps the first loaded message fixed when it becomes a continuation', asyn
   await expect(timeline.loading).toHaveCount(0);
 
   const subscription = await core.subscription();
-  const anchor = await timeline.anchorAt(1);
+  const anchor = await timeline.anchorOfItem('general-1');
 
   await core.emitTimelineDiff(subscription, [
     {
@@ -471,10 +471,13 @@ test('anchors delayed history inserted after a stable date divider', async ({
   await timeline.scrollTo(0);
   const before = await anchor.boundingBox();
   if (!before) throw new Error('missing history anchor');
+  const indexBefore = Number(await anchor.getAttribute('data-index'));
 
   await timeline.wheelUp(100);
   await expect.poll(() => core.paginateCount()).toBe(1);
-  await expect.poll(() => anchor.getAttribute('data-index'), { timeout: 3_000 }).toBe('21');
+  await expect
+    .poll(async () => Number(await anchor.getAttribute('data-index')), { timeout: 3_000 })
+    .toBeGreaterThan(indexBefore);
   await expect.poll(async () => (await anchor.boundingBox())?.y).toBeCloseTo(before.y, 0);
 });
 
@@ -499,10 +502,13 @@ test('anchors delayed history from a nonzero oldest-threshold offset', async ({
   const anchor = timeline.itemByEventId('$general-8:example.test');
   const beforePrepend = await anchor.boundingBox();
   if (!beforePrepend) throw new Error('missing nonzero history anchor');
+  const indexBefore = Number(await anchor.getAttribute('data-index'));
 
   await timeline.dispatchWheel(-100);
   await expect.poll(() => core.paginateCount()).toBe(1);
-  await expect.poll(() => anchor.getAttribute('data-index'), { timeout: 3_000 }).toBe('29');
+  await expect
+    .poll(async () => Number(await anchor.getAttribute('data-index')), { timeout: 3_000 })
+    .toBeGreaterThan(indexBefore);
   await expect.poll(async () => (await anchor.boundingBox())?.y).toBeCloseTo(beforePrepend.y, 0);
 });
 

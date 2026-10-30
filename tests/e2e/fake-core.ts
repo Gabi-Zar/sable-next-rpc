@@ -22,6 +22,7 @@ import type {
   SpaceHierarchyRoomView,
   SubscriptionId,
   TimelineItemView,
+  VectorDiff,
   Rpc,
 } from '#src/generated/protocol';
 
@@ -76,6 +77,7 @@ declare global {
     __e2eRefreshRoom: () => void;
     __e2eReceiveMessage: (body: string) => void;
     __e2eEmitTimelineEvent: (event: unknown) => void;
+    __e2eTimelineIndexOf: (subscription: number, itemId: string) => number;
     __e2eTimelineRebuilds: number;
   }
 }
@@ -540,6 +542,44 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
       { roomId: string; page: number; live: boolean; thread: boolean; oldest: number }
     >();
     const arrivals: TimelineItemView[] = [];
+    const coreTimelines = new Map<number, TimelineItemView[]>();
+    const applyCoreDiff = (items: TimelineItemView[], diff: VectorDiff<TimelineItemView>): void => {
+      switch (diff.op) {
+        case 'append':
+          items.push(...diff.values);
+          break;
+        case 'clear':
+          items.length = 0;
+          break;
+        case 'push_front':
+          items.unshift(diff.value);
+          break;
+        case 'push_back':
+          items.push(diff.value);
+          break;
+        case 'pop_front':
+          items.shift();
+          break;
+        case 'pop_back':
+          items.pop();
+          break;
+        case 'insert':
+          items.splice(diff.index, 0, diff.value);
+          break;
+        case 'set':
+          items[diff.index] = diff.value;
+          break;
+        case 'remove':
+          items.splice(diff.index, 1);
+          break;
+        case 'truncate':
+          items.length = Math.min(items.length, diff.length);
+          break;
+        case 'reset':
+          items.splice(0, items.length, ...diff.values);
+          break;
+      }
+    };
     let unreadContextOpened = false;
     const notificationKeywords: KeywordNotificationView[] = [];
     let defaultGroupMode: 'all' | 'mentions' = 'mentions';
@@ -1475,6 +1515,12 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
         );
       },
       'timeline.events': () => [],
+      'timeline.unread_diagnostics': () => ({
+        main: { unread: 0, notifying: 0, highlight: 0, receipt_event_id: null },
+        server_notifications: 0,
+        server_highlights: 0,
+        threads: [],
+      }),
       'timeline.timestamp_to_event': () => null,
       'timeline.list_threads': () => ({ roots: [], next_batch: null }),
       'timeline.event_source': (params) => ({
@@ -1727,6 +1773,10 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
       close(): void {}
 
       emit(event: CoreEvent): void {
+        if (event.type === 'timeline_diff') {
+          const items = coreTimelines.get(event.subscription);
+          if (items) for (const diff of event.diffs) applyCoreDiff(items, diff);
+        }
         this.onmessage?.({ data: { events: [event] } } as MessageEvent);
       }
 
@@ -1780,6 +1830,10 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
             const ok = handler ? handler(params, this) : null;
             if (ok === NO_REPLY) return;
             reply = { id: request.id, ok };
+            if (method === 'timeline.subscribe') {
+              const subscribed = ok as RpcResult<Rpc['timeline']['subscribe']>;
+              coreTimelines.set(subscribed.subscription, [...subscribed.items]);
+            }
           } catch (error) {
             if (!(error instanceof FakeCoreError)) throw error;
             reply = { id: request.id, err: { code: error.code } };
@@ -1827,6 +1881,11 @@ export async function installFakeCore(page: Page, mode: WorkerMode): Promise<voi
       }
     }
 
+    Object.defineProperty(window, '__e2eTimelineIndexOf', {
+      configurable: true,
+      value: (subscription: number, itemId: string): number =>
+        coreTimelines.get(subscription)?.findIndex((item) => item.id === itemId) ?? -1,
+    });
     Object.defineProperty(window, '__e2eEmitTimelineEvent', {
       configurable: true,
       value: (event: unknown) => activePort?.emit(event as CoreEvent),

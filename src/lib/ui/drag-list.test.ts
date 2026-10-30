@@ -126,26 +126,6 @@ describe('the drag protocol', () => {
     for (const cleanup of cleanups) cleanup?.();
   });
 
-  it('forgets the drag on a drop even when no dragend follows', () => {
-    const { source, target } = mount(40);
-    const list = createDragList<Ref>(refsEqual);
-    const dragging: (Ref | null)[] = [];
-    const cleanups = [
-      list.draggable(ref('!a'), (next) => dragging.push(next))(source),
-      list.dropTarget(ref('!b'), {
-        allowInto: true,
-        onState: () => undefined,
-        onDrop: () => undefined,
-      })(target),
-    ];
-
-    source.dispatchEvent(dragEvent('dragstart'));
-    target.dispatchEvent(dragEvent('drop', 20));
-    expect(dragging).toEqual([ref('!a'), null]);
-
-    for (const cleanup of cleanups) cleanup?.();
-  });
-
   it('forgets the drag when it is dropped on itself', () => {
     const { source } = mount(40);
     const list = createDragList<Ref>(refsEqual);

@@ -24,13 +24,15 @@ test('a room of mostly hidden events reaches its start in five history pages', a
 }) => {
   test.setTimeout(180_000);
   const account = await proxiedAccount();
+  const author = await proxiedAccount();
   const name = `Sparse ${String(Date.now())}`;
-  const roomId = await account.createRoom({ name });
-  await account.sendMessage(roomId, 'Sparse first');
-  await account.sendMessage(roomId, 'Sparse second');
-  const rootId = await account.sendMessage(roomId, 'Sparse root');
+  const roomId = await account.createRoom({ name, invite: [author.userId] });
+  await author.join(roomId);
+  await author.sendMessage(roomId, 'Sparse first');
+  await author.sendMessage(roomId, 'Sparse second');
+  const rootId = await author.sendMessage(roomId, 'Sparse root');
   for (let index = 0; index < 120; index += 1) {
-    await account.sendMessage(roomId, `* Sparse edit ${String(index)}`, {
+    await author.sendMessage(roomId, `* Sparse edit ${String(index)}`, {
       'm.new_content': { msgtype: 'm.text', body: `Sparse edit ${String(index)}` },
       'm.relates_to': { rel_type: 'm.replace', event_id: rootId },
     });

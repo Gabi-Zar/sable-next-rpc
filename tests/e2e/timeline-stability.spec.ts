@@ -1360,7 +1360,7 @@ test('a message the reader sends from the bottom is followed on every frame', as
               diffs: [
                 {
                   op: 'set',
-                  index: Number(row.dataset.index),
+                  index: window.__e2eTimelineIndexOf(subscription, echo.id),
                   value: {
                     ...echo,
                     event_id: `$${echo.id}`,

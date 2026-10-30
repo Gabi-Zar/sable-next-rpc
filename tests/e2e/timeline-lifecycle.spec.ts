@@ -28,9 +28,7 @@ test('backgrounding an interrupted touch settles queued history without moving t
   await timeline.scrollAboveBottomAndNotify(2_000);
   await timeline.waitForScrollSettled();
   const anchor = await timeline.fullyVisibleAnchor({ skip: 1 });
-  const indexAttribute = await timeline.itemById(anchor.itemId).getAttribute('data-index');
-  if (indexAttribute === null) throw new Error(`missing data-index for ${anchor.itemId}`);
-  const index = Number(indexAttribute);
+  const index = await core.indexOfTimelineItem(subscription, anchor.itemId);
 
   await timeline.viewport.dispatchEvent('touchstart', {
     touches: [{ identifier: 1, clientX: 100, clientY: 100 }],

@@ -114,13 +114,13 @@ test.describe('touch', () => {
     await row.locator('.reactions .add-reaction').click();
     const sheet = page.getByRole('dialog', { name: 'Add reaction', exact: true });
     await expect(sheet).toBeVisible();
-    await sheet.getByRole('searchbox').fill('nice work');
-    await sheet.getByRole('button', { name: 'React with “nice work”', exact: true }).click();
+    await sheet.getByRole('searchbox').fill('tada');
+    await sheet.getByRole('gridcell', { name: 'tada', exact: true }).click();
     await expect(sheet).toBeHidden();
-    await expect(row.locator('button.reaction').filter({ hasText: 'nice work' })).toBeVisible();
+    await expect(row.locator('button.reaction').filter({ hasText: '🎉' })).toBeVisible();
     await expect
       .poll(async () => (await history(account)).map(({ emoji, total }) => [emoji, total]))
-      .toEqual([['nice work', 1]]);
+      .toEqual([['🎉', 1]]);
   });
 });
 
