@@ -624,6 +624,8 @@
           !disposed
         ) {
           await jumpToUnread();
+        } else if (!landed && !engine.state.pinned && timeline.reachesLatest) {
+          await engine.jumpTo(null, 'start');
         }
       }
     } catch (error) {

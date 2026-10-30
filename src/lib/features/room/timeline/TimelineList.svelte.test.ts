@@ -3039,3 +3039,35 @@ test('a room with no settings over it is read', async () => {
 test('a room covered by the settings dialog is not read', async () => {
   expect(await readsWhileSettings(true)).not.toHaveBeenCalled();
 });
+
+test('a timeline that falls back from an unread context to live opens at the latest message', async () => {
+  const roomTimeline = timeline();
+  roomTimeline.hasSnapshot = false;
+  roomTimeline.mode = { kind: 'unread', eventId: '$read' };
+  const jumps = vi.spyOn(TimelineWindow.prototype, 'jumpTo');
+  render(TimelineListHarness, {
+    props: {
+      list: {
+        timeline: roomTimeline,
+        roomId: '!room:example.org',
+        hasUnread: true,
+        onLoadReadMarker: () => Promise.resolve(null),
+        onRequestHistory: () => Promise.resolve(false),
+        onRequestFuture: async () => {},
+        onRead: () => Promise.resolve(),
+      },
+    },
+  });
+  unreadViewport();
+  await flushed();
+
+  roomTimeline.mode = { kind: 'live' };
+  roomTimeline.items = [item('read'), ...Array.from({ length: 12 }, (_, i) => item(`new-${i}`))];
+  roomTimeline.hasSnapshot = true;
+  await flushed();
+  await runAnimationFrames();
+
+  await vi.waitFor(() => {
+    expect(jumps).toHaveBeenCalledWith(null, 'start');
+  });
+});
