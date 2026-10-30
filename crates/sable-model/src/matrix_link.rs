@@ -2,7 +2,7 @@ use ruma_common::matrix_uri::MatrixId;
 use ruma_common::{MatrixToUri, MatrixUri};
 use serde::Serialize;
 
-use crate::text::is_space;
+use crate::text::{head, is_space, tail};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(feature = "typegen", derive(specta::Type))]
@@ -29,9 +29,14 @@ pub struct ViaSplit {
 
 #[must_use]
 pub fn parse_matrix_link(href: &str) -> Option<MatrixLink> {
-    let id = MatrixUri::parse(href)
+    let path = href.split(['?', '#']).next().unwrap_or(href);
+    let identifier = href
+        .find('#')
+        .and_then(|hash| Some(head(href, hash + tail(href, hash).find('?')?)))
+        .unwrap_or(href);
+    let id = MatrixUri::parse(path)
         .map(|uri| uri.id().clone())
-        .or_else(|_| MatrixToUri::parse(href).map(|uri| uri.id().clone()))
+        .or_else(|_| MatrixToUri::parse(identifier).map(|uri| uri.id().clone()))
         .ok()?;
     Some(match id {
         MatrixId::User(user_id) => MatrixLink::User {
@@ -151,6 +156,22 @@ mod tests {
         assert_eq!(address("https://matrix.to/#/@user:example.org"), None);
         assert_eq!(address("#no-server"), None);
         assert_eq!(address(""), None);
+    }
+
+    #[test]
+    fn a_matrix_uri_ignores_query_parameters_it_does_not_know() {
+        for href in [
+            "matrix:u/alice:example.org?org.example.label=a+b",
+            "matrix:u/alice:example.org?action=chat&org.example.label=a%26b&user=other",
+        ] {
+            assert_eq!(
+                parse_matrix_link(href),
+                Some(MatrixLink::User {
+                    user_id: "@alice:example.org".to_owned()
+                }),
+                "{href}"
+            );
+        }
     }
 
     #[test]
@@ -335,16 +356,19 @@ mod tests {
     }
 
     #[test]
-    fn ruma_rejects_previously_tolerated_identifiers_and_unknown_queries() {
+    fn ruma_rejects_incomplete_identifiers_and_ignores_unknown_matrix_to_parameters() {
         for href in [
             "matrix:u/alice",
             "matrix:r/lobby",
             "https://matrix.to/#/@alice",
-            "matrix:u/alice:example.org?unknown=value",
-            "https://matrix.to/#/!room:example.org?action=join",
+            "https://matrix.to/#/@alice?action=chat",
         ] {
             assert_eq!(parse_matrix_link(href), None, "{href}");
         }
+        assert_eq!(
+            parse_matrix_link("https://matrix.to/#/!room:example.org?action=join&via=a.example"),
+            Some(room("!room:example.org"))
+        );
     }
 
     #[test]
