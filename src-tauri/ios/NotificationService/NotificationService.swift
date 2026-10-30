@@ -411,7 +411,7 @@ final class NotificationService: UNNotificationServiceExtension {
         let quiet = !duplicates.isEmpty
             || activeElsewhere
             || cooling
-        // Dropping the alert needs the filtering entitlement; until then it arrives silently.
+        // Dropping the alert needs the filtering entitlement. Without it the generic fallback stays visible.
         if activeElsewhere || cooling { updated.interruptionLevel = .passive }
         updated.sound = !quiet && root?.withCString { sable_push_sounds($0) } == true ? sound : nil
         if let stamp = quiet ? alertedAt : Optional(now) {
