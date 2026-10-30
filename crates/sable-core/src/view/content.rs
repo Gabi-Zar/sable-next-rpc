@@ -24,7 +24,7 @@ use crate::protocol::{
 
 use super::media::{
     audio_duration_ms, audio_metadata, audio_waveform, caption_view, gallery_item, image_thumbnail,
-    media_source, spoiler_reason, video_playback, video_thumbnail,
+    media_source, video_playback, video_thumbnail,
 };
 use super::raw::RawFields;
 use super::state::{membership_change, membership_reason, pinned_change, state_change};
@@ -206,7 +206,7 @@ fn message_type_content(
                 size: dimension(image.info.as_ref().and_then(|info| info.size)),
                 blurhash: image.info.as_ref().and_then(|info| info.blurhash.clone()),
                 thumbnail: image.info.as_deref().and_then(image_thumbnail),
-                spoiler: spoiler_reason(raw.message()),
+                spoiler: raw.spoiler_reason(),
                 animated: image.info.as_ref().and_then(|info| info.is_animated),
             }
         }
@@ -223,7 +223,7 @@ fn message_type_content(
                 height: dimension(video.info.as_ref().and_then(|info| info.height)),
                 blurhash: video.info.as_ref().and_then(|info| info.blurhash.clone()),
                 thumbnail: video.info.as_deref().and_then(video_thumbnail),
-                spoiler: spoiler_reason(raw.message()),
+                spoiler: raw.spoiler_reason(),
                 playback: video_playback(raw.message()),
             }
         }
@@ -615,7 +615,7 @@ mod tests {
         }))
         .unwrap();
 
-        assert_eq!(spoiler_reason(raw.message()).as_deref(), Some(""));
+        assert_eq!(raw.spoiler_reason().as_deref(), Some(""));
     }
 
     #[test]

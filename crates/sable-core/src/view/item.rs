@@ -31,6 +31,7 @@ use crate::protocol::{
 use super::content::{content, raw_formatted_body};
 use super::diff::diff_values;
 use super::forward::{forward_meta, forwarded, original_content};
+use super::media::spoiler_reason;
 use super::previews::{bundled_link_previews, link_previews_removed};
 use super::profile::per_message_profile;
 use super::raw::RawFields;
@@ -89,6 +90,7 @@ impl Highlights {
 struct LocalFields {
     profile: Option<PerMessageProfileView>,
     formatted_body: Option<String>,
+    spoiler: Option<String>,
 }
 
 #[derive(Default)]
@@ -188,8 +190,13 @@ impl LocalContent {
             .map(|content| LocalFields {
                 profile: per_message_profile(Some(&content)),
                 formatted_body: raw_formatted_body(Some(&content)).map(ToOwned::to_owned),
+                spoiler: spoiler_reason(Some(&content)),
             })
-            .filter(|fields| fields.profile.is_some() || fields.formatted_body.is_some());
+            .filter(|fields| {
+                fields.profile.is_some()
+                    || fields.formatted_body.is_some()
+                    || fields.spoiler.is_some()
+            });
         match fields {
             Some(fields) => {
                 self.fields.insert(transaction_id.to_owned(), fields);
@@ -507,6 +514,7 @@ pub fn timeline_item(
                 .and(event.transaction_id())
                 .and_then(|transaction_id| local_content.get(transaction_id));
             raw.echo_formatted_body = local.and_then(|fields| fields.formatted_body.clone());
+            raw.echo_spoiler = local.and_then(|fields| fields.spoiler.clone());
             let message_profile = message_profile(event, &raw, local, local_content);
 
             let mention = mention(event, own_user_id, highlights.holds(&id, event));

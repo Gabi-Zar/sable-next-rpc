@@ -3,6 +3,7 @@ use serde::Deserialize as _;
 use serde_with::DeserializeAs;
 
 use super::content::raw_formatted_body;
+use super::media::spoiler_reason;
 
 /// Narrow so serde skips the rest of the event; a whole-event `Value`
 /// materialises every `formatted_body`.
@@ -15,6 +16,8 @@ pub(super) struct RawFields {
     pub(super) original_content: Option<serde_json::Value>,
     #[serde(skip)]
     pub(super) echo_formatted_body: Option<String>,
+    #[serde(skip)]
+    pub(super) echo_spoiler: Option<String>,
 }
 
 #[derive(serde::Deserialize)]
@@ -74,6 +77,10 @@ impl RawFields {
 
     pub(super) fn formatted_body(&self) -> Option<&str> {
         raw_formatted_body(self.message()).or(self.echo_formatted_body.as_deref())
+    }
+
+    pub(super) fn spoiler_reason(&self) -> Option<String> {
+        spoiler_reason(self.message()).or_else(|| self.echo_spoiler.clone())
     }
 
     pub(super) fn redacted_by(&self) -> Option<String> {

@@ -1243,6 +1243,9 @@ mod tests {
 mod sdk_timeline_tests;
 
 #[cfg(all(test, not(target_family = "wasm")))]
+mod sdk_spoiler_tests;
+
+#[cfg(all(test, not(target_family = "wasm")))]
 mod sdk_notification_tests;
 
 #[cfg(all(test, not(target_family = "wasm")))]
