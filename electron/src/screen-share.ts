@@ -1,12 +1,6 @@
 import type { DesktopCapturerSource, Streams } from 'electron';
 import { release } from 'node:os';
-
-export function windowsScreenAudioSupported(
-  platform: NodeJS.Platform = process.platform,
-  osRelease: string = release()
-): boolean {
-  return platform === 'win32' && Number(osRelease.split('.')[2]) >= 20348;
-}
+import { supported as audiofoxSupported } from './audiofox';
 
 export function screenShareStreams(
   source: Pick<DesktopCapturerSource, 'id' | 'name'>,
@@ -16,14 +10,10 @@ export function screenShareStreams(
 ): Streams {
   const streams: Streams = { video: source };
   if (audioRequested && platform === 'win32') {
-    if (windowsScreenAudioSupported(platform, osRelease)) return streams;
+    if (audiofoxSupported(platform, osRelease)) return streams;
     // Windows 10 22H2+ supports excluding Chromium's audio.
     // @ts-expect-error Electron supports loopbackWithoutChrome but does not type it.
     streams.audio = Number(osRelease.split('.')[2]) >= 19045 ? 'loopbackWithoutChrome' : 'loopback';
-  } else if (audioRequested && platform === 'darwin') {
-    // CoreAudio Taps require macOS 14.2 (Darwin 23.2) or newer.
-    const [major, minor] = osRelease.split('.').map(Number);
-    if (major > 23 || (major === 23 && minor >= 2)) streams.audio = 'loopback';
   }
   return streams;
 }

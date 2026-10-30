@@ -688,10 +688,6 @@ if (!app.requestSingleInstanceLock()) {
   });
 
   void app.whenReady().then(() => {
-    session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
-      details.requestHeaders['User-Agent'] = USER_AGENT;
-      callback({ requestHeaders: details.requestHeaders });
-    });
     registerDeepLinks();
     desktopTray.update(desktopWindowSettings.showSystemTrayIcon);
     core = startCore();

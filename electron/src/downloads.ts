@@ -1,6 +1,8 @@
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
+const MAX_ALTERNATE_NAMES = 1000;
+
 export async function writeDownload(
   directory: string,
   name: string,
@@ -22,11 +24,18 @@ export async function writeDownload(
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
     const dot = name.lastIndexOf('.');
-    const stamp = `-${String(Date.now())}`;
-    const candidate =
-      dot > 0 ? `${name.slice(0, dot)}${stamp}${name.slice(dot)}` : `${name}${stamp}`;
-    const alternate = join(directory, candidate);
-    await writeFile(alternate, bytes, { flag: 'wx' });
-    return alternate;
+    for (let attempt = 1; attempt <= MAX_ALTERNATE_NAMES; attempt += 1) {
+      const suffix = ` (${attempt})`;
+      const candidate =
+        dot > 0 ? `${name.slice(0, dot)}${suffix}${name.slice(dot)}` : `${name}${suffix}`;
+      const alternate = join(directory, candidate);
+      try {
+        await writeFile(alternate, bytes, { flag: 'wx' });
+        return alternate;
+      } catch (alternateError) {
+        if ((alternateError as NodeJS.ErrnoException).code !== 'EEXIST') throw alternateError;
+      }
+    }
+    throw new Error(`Could not find an available filename for ${name}`, { cause: error });
   }
 }

@@ -39,12 +39,14 @@ test.each([
 
 test('saves a file in Downloads without overwriting an existing file', async () => {
   const original = join(directory, 'report.txt');
+  await writeFile(join(directory, 'report (1).txt'), 'first alternate');
+  await writeFile(join(directory, 'report (2).txt'), 'second alternate');
   await writeFile(original, 'original');
   const saved = await writeDownload(directory, 'report.txt', new TextEncoder().encode('new'));
-  expect(saved).not.toBe(original);
+  expect(saved).toBe(join(directory, 'report (3).txt'));
   expect(await readFile(original, 'utf8')).toBe('original');
   expect(await readFile(saved, 'utf8')).toBe('new');
-  expect(await readdir(directory)).toHaveLength(2);
+  expect(await readdir(directory)).toHaveLength(4);
 });
 
 test('accepts Unicode and filenames with multiple dots', async () => {

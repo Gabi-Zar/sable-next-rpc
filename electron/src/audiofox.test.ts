@@ -121,6 +121,7 @@ test('requires OS support for application capture', async () => {
   expect(supported('linux', '6.12.0')).toBe(true);
   expect(supported('win32', '10.0.19045')).toBe(false);
   expect(supported('win32', '10.0.20348')).toBe(true);
+  expect(supported('win32', 'unknown')).toBe(false);
   expect(supported('darwin', '23.1.0')).toBe(false);
   expect(supported('darwin', '23.2.0')).toBe(true);
 });
