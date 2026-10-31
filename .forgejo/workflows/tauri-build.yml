@@ -639,7 +639,15 @@ jobs:
           node scripts/ci/forgejo-release.mjs upload "${bundles[@]}"
   android-reproducible:
     name: Reproduce FOSS Android APK
-    needs: [setup-release, android]
+    # Runs last so the long rebuild never holds a runner other builds wait on.
+    needs:
+      - setup-release
+      - android
+      - docker-manifest
+      - publish-latest
+      - distribute-aur
+      - distribute-homebrew
+      - distribute-playstore
     if: ${{ !cancelled() && needs.android.result == 'success' && needs.setup-release.outputs.nightly != 'true' }}
     runs-on: docker
     container:
