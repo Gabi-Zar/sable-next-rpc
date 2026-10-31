@@ -49,7 +49,7 @@ pub fn write_atomic_private(path: &std::path::Path, bytes: &[u8]) -> std::io::Re
 #[cfg(not(target_family = "wasm"))]
 #[cfg_attr(
     not(unix),
-    expect(unused_variables, reason = "creation modes are unix only")
+    expect(unused_variables, unused_mut, reason = "creation modes are unix only")
 )]
 fn publish(path: &std::path::Path, bytes: &[u8], mode: u32) -> std::io::Result<()> {
     use std::io::Write;
